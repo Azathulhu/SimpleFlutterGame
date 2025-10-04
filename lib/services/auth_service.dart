@@ -11,53 +11,30 @@ class AuthService {
     try {
       final res = await supabase.auth.signUp(email: email, password: password);
       final user = res.user;
-      if (user == null) throw Exception('Failed to sign up');
+      if (user == null) throw Exception('Sign up failed.');
 
-      // Insert into users table
       await supabase.from('users').insert({
         'id': user.id,
         'email': email,
         'username': username,
         'created_at': DateTime.now().toIso8601String(),
       });
+
+      await supabase.auth.signInWithPassword(email: email, password: password);
     } catch (e) {
-      // Improved error handling
-      throw Exception('Sign Up Error: ${_getMessage(e)}');
+      throw Exception(e.toString());
     }
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-    bool allowUnconfirmed = true, // NEW: allow testing before email confirmed
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     try {
-      final res = await supabase.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
-
-      if (res.user == null) {
-        throw Exception('Sign in failed: user not found');
-      }
-
-      // Check email confirmation
-      if (!allowUnconfirmed && !(res.user!.emailConfirmedAt != null)) {
-        throw Exception('Email not confirmed yet');
-      }
+      await supabase.auth.signInWithPassword(email: email, password: password);
     } catch (e) {
-      throw Exception('Sign In Error: ${_getMessage(e)}');
+      throw Exception(e.toString());
     }
   }
 
-  Future<void> signOut() async {
-    await supabase.auth.signOut();
-  }
+  Future<void> signOut() async => supabase.auth.signOut();
 
   User? get currentUser => supabase.auth.currentUser;
-
-  String _getMessage(Object e) {
-    if (e is AuthException) return e.message;
-    return e.toString();
-  }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../services/auth_service.dart';
-import 'sign_in_page.dart';
+import 'home_page.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -45,16 +45,18 @@ class _SignUpPageState extends State<SignUpPage> {
                     email: emailController.text.trim(),
                     password: passwordController.text.trim(),
                   );
-                  Fluttertoast.showToast(msg: 'Account created!');
+                  Fluttertoast.showToast(
+                    msg: 'Account created! Entering quiz...',
+                  );
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => const SignInPage()),
+                    MaterialPageRoute(builder: (_) => const HomePage()),
                   );
                 } catch (e) {
                   Fluttertoast.showToast(msg: e.toString());
                 }
               },
-              child: const Text('Sign Up'),
+              child: const Text('Sign Up & Play Quiz'),
             ),
           ],
         ),

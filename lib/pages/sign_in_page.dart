@@ -39,8 +39,6 @@ class _SignInPageState extends State<SignInPage> {
                   await auth.signIn(
                     email: emailController.text.trim(),
                     password: passwordController.text.trim(),
-                    allowUnconfirmed:
-                        true, // Let user access quiz even if email not confirmed
                   );
                   Fluttertoast.showToast(msg: 'Signed in!');
                   Navigator.pushReplacement(
@@ -51,7 +49,7 @@ class _SignInPageState extends State<SignInPage> {
                   Fluttertoast.showToast(msg: e.toString());
                 }
               },
-              child: const Text('Sign In'),
+              child: const Text('Sign In & Play Quiz'),
             ),
             TextButton(
               onPressed: () => Navigator.push(

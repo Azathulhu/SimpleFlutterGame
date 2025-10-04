@@ -17,12 +17,10 @@ class Question {
   });
 
   factory Question.fromMap(Map<String, dynamic> map) {
-    List<String> opts = [];
-    if (map['options'] is List) opts = List<String>.from(map['options']);
     return Question(
       id: map['id'],
       text: map['text'],
-      options: opts,
+      options: List<String>.from(map['options']),
       answer: map['answer'],
       difficulty: map['difficulty'],
     );
