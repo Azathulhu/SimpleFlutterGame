@@ -39,6 +39,8 @@ class _SignInPageState extends State<SignInPage> {
                   await auth.signIn(
                     email: emailController.text.trim(),
                     password: passwordController.text.trim(),
+                    allowUnconfirmed:
+                        true, // Let user access quiz even if email not confirmed
                   );
                   Fluttertoast.showToast(msg: 'Signed in!');
                   Navigator.pushReplacement(
