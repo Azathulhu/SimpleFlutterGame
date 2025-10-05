@@ -21,9 +21,6 @@ class QuizMasterApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: Colors.green[50],
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.black87),
-        ),
       ),
       home: const SignInPage(),
     );
