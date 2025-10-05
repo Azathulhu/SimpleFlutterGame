@@ -20,7 +20,7 @@ class Question {
     return Question(
       id: map['id'],
       text: map['text'],
-      options: List<String>.from(map['options']),
+      options: List<String>.from(map['options'] ?? []),
       answer: map['answer'],
       difficulty: map['difficulty'],
     );
@@ -31,16 +31,22 @@ class QuizService {
   final SupabaseClient supabase = Supabase.instance.client;
 
   Future<List<Question>> fetchQuestions(String difficulty, int limit) async {
-    final List res = await supabase
-        .from('questions')
-        .select()
-        .eq('difficulty', difficulty)
-        .limit(limit);
-    final List<Question> questions = res
-        .map((q) => Question.fromMap(q))
-        .toList();
-    questions.shuffle(Random());
-    return questions;
+    try {
+      final List res = await supabase
+          .from('questions')
+          .select()
+          .eq('difficulty', difficulty)
+          .limit(limit);
+
+      print('Fetched ${res.length} questions from Supabase.');
+
+      final questions = res.map((q) => Question.fromMap(q)).toList();
+      questions.shuffle(Random());
+      return questions;
+    } catch (e) {
+      print('Error fetching questions: $e');
+      return [];
+    }
   }
 
   Future<void> submitScore({
@@ -48,12 +54,16 @@ class QuizService {
     required int score,
     required String level,
   }) async {
-    await supabase.from('leaderboard').insert({
-      'user_id': userId,
-      'score': score,
-      'level': level,
-      'created_at': DateTime.now().toIso8601String(),
-    });
+    try {
+      await supabase.from('leaderboard').insert({
+        'user_id': userId,
+        'score': score,
+        'level': level,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      print('Error submitting score: $e');
+    }
   }
 
   Future<List<Map<String, dynamic>>> fetchLeaderboard(int limit) async {

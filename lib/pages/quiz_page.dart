@@ -14,6 +14,8 @@ class _QuizPageState extends State<QuizPage> {
   List<Question> questions = [];
   int currentIndex = 0;
   int score = 0;
+  bool loading = true;
+  String? errorMessage;
 
   @override
   void initState() {
@@ -22,10 +24,29 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Future<void> loadQuestions() async {
-    final fetched = await quizService.fetchQuestions('easy', 5);
     setState(() {
-      questions = fetched;
+      loading = true;
+      errorMessage = null;
     });
+
+    try {
+      final fetched = await quizService.fetchQuestions('easy', 5);
+      if (fetched.isEmpty) {
+        throw Exception('No questions found in database.');
+      }
+      setState(() {
+        questions = fetched;
+      });
+    } catch (e) {
+      print('Error fetching questions: $e');
+      setState(() {
+        errorMessage = e.toString();
+      });
+    } finally {
+      setState(() {
+        loading = false;
+      });
+    }
   }
 
   void answer(String selected) {
@@ -56,8 +77,28 @@ class _QuizPageState extends State<QuizPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (questions.isEmpty)
+    if (loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: loadQuestions,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final q = questions[currentIndex];
     return Scaffold(
       appBar: AppBar(
@@ -70,9 +111,12 @@ class _QuizPageState extends State<QuizPage> {
             Text(q.text, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 16),
             ...q.options.map(
-              (opt) => ElevatedButton(
-                onPressed: () => answer(opt),
-                child: Text(opt),
+              (opt) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: ElevatedButton(
+                  onPressed: () => answer(opt),
+                  child: Text(opt),
+                ),
               ),
             ),
           ],
