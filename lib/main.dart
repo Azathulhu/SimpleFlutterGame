@@ -4,7 +4,8 @@ import 'pages/sign_in_page.dart';
 
 // Supabase constants
 const String SUPABASE_URL = 'https://hwnrfdorpsazrujmoxhl.supabase.co';
-const String SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const String SUPABASE_ANON_KEY =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3bnJmZG9ycHNhenJ1am1veGhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1NDg1NDQsImV4cCI6MjA3NTEyNDU0NH0.iynHcMIAVTPxaoYL94OldQnLh7DD0SRJkaTXg7ckGc8';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
