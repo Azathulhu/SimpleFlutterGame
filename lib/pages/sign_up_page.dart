@@ -45,15 +45,14 @@ class _SignUpPageState extends State<SignUpPage> {
                     email: emailController.text.trim(),
                     password: passwordController.text.trim(),
                   );
-                  Fluttertoast.showToast(
-                    msg: 'Account created! Entering quiz...',
-                  );
+                  Fluttertoast.showToast(msg: 'Account created! Logging in...');
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (_) => const HomePage()),
                   );
                 } catch (e) {
-                  Fluttertoast.showToast(msg: e.toString());
+                  print('SIGN-UP ERROR: $e');
+                  Fluttertoast.showToast(msg: 'Sign-up failed: $e');
                 }
               },
               child: const Text('Sign Up & Play Quiz'),

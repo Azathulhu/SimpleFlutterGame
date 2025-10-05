@@ -40,13 +40,14 @@ class _SignInPageState extends State<SignInPage> {
                     email: emailController.text.trim(),
                     password: passwordController.text.trim(),
                   );
-                  Fluttertoast.showToast(msg: 'Signed in!');
+                  Fluttertoast.showToast(msg: 'Signed in successfully!');
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (_) => const HomePage()),
                   );
                 } catch (e) {
-                  Fluttertoast.showToast(msg: e.toString());
+                  print('SIGN-IN ERROR: $e');
+                  Fluttertoast.showToast(msg: 'Sign-in failed: $e');
                 }
               },
               child: const Text('Sign In & Play Quiz'),
