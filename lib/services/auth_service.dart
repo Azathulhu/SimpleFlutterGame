@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   final SupabaseClient supabase = Supabase.instance.client;
 
+  // ---------------- Sign Up ----------------
   Future<void> signUp({
     required String email,
     required String password,
@@ -31,6 +32,7 @@ class AuthService {
     }
   }
 
+  // ---------------- Sign In ----------------
   Future<void> signIn({
     required String email,
     required String password,
@@ -45,11 +47,13 @@ class AuthService {
     }
   }
 
+  // ---------------- Sign Out ----------------
   Future<void> signOut() async => supabase.auth.signOut();
 
+  // ---------------- Current User ----------------
   User? get currentUser => supabase.auth.currentUser;
 
-  /// Read unlocked levels for current user
+  // ---------------- Unlocked Levels ----------------
   Future<List<String>> fetchUnlockedLevels() async {
     final user = currentUser;
     if (user == null) return ['easy'];
@@ -59,7 +63,7 @@ class AuthService {
     return levels ?? ['easy'];
   }
 
-  /// Unlock next level for this user
+  // ---------------- Unlock Level ----------------
   Future<void> unlockLevel(String level) async {
     final user = currentUser;
     if (user == null) return;
@@ -70,12 +74,3 @@ class AuthService {
     }
   }
 }
-
-
-  Future<void> signOut() async {
-    await supabase.auth.signOut();
-  }
-
-  User? get currentUser => supabase.auth.currentUser;
-}
-
