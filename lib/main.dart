@@ -19,7 +19,7 @@ class QuizMasterApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Quiz Master',
+      title: 'SLAC Quiz',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const SignInPage(),
