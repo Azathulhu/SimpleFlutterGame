@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'quiz_page.dart';
 import 'leaderboard_page.dart';
-import 'sign_in_page.dart';
 import '../theme.dart';
+import 'package:confetti/confetti.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,13 +16,21 @@ class _HomePageState extends State<HomePage> {
   List<String> unlocked = ['easy'];
   String selectedLevel = 'easy';
   bool loading = true;
-
   final levels = ['easy', 'medium', 'hard'];
+
+  late ConfettiController confettiController;
 
   @override
   void initState() {
     super.initState();
+    confettiController = ConfettiController(duration: const Duration(seconds: 1));
     _loadUnlocked();
+  }
+
+  @override
+  void dispose() {
+    confettiController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUnlocked() async {
@@ -37,25 +45,27 @@ class _HomePageState extends State<HomePage> {
 
   Widget levelCard(String level, bool enabled) {
     final isSelected = selectedLevel == level;
-    return ScaleOnTap(
-      onTap: enabled
-          ? () => setState(() => selectedLevel = level)
-          : null,
+    return GestureDetector(
+      onTap: enabled ? () => setState(() => selectedLevel = level) : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: const Duration(milliseconds: 250),
         padding: const EdgeInsets.all(14),
         width: 120,
         decoration: BoxDecoration(
           color: enabled ? (isSelected ? AppTheme.primary : Colors.white) : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: enabled ? [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0,4))] : null,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: enabled
+              ? [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))]
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(level.toUpperCase(), style: TextStyle(color: enabled ? (isSelected ? Colors.white : Colors.black87) : Colors.grey)),
-            const SizedBox(height: 8),
-            Text(enabled ? 'Unlocked' : 'Locked', style: TextStyle(fontSize: 12, color: enabled ? (isSelected ? Colors.white70 : Colors.black54) : Colors.grey)),
+            Text(level.toUpperCase(),
+                style: TextStyle(color: enabled ? (isSelected ? Colors.white : Colors.black87) : Colors.grey, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(enabled ? 'Unlocked' : 'Locked',
+                style: TextStyle(fontSize: 12, color: enabled ? (isSelected ? Colors.white70 : Colors.black54) : Colors.grey)),
           ],
         ),
       ),
@@ -64,7 +74,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final userEmail = auth.currentUser?.email ?? 'Guest';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quiz Home'),
@@ -73,7 +82,8 @@ class _HomePageState extends State<HomePage> {
             onPressed: () async {
               await auth.signOut();
               if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => SignInPage()), (route) => false);
+              Navigator.of(context)
+                  .pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
             },
             icon: const Icon(Icons.logout),
             tooltip: 'Sign out',
@@ -94,35 +104,50 @@ class _HomePageState extends State<HomePage> {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: levels.map((lvl) => Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: levelCard(lvl, unlocked.contains(lvl)),
-                      )).toList(),
+                      children: levels
+                          .map((lvl) => Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: levelCard(lvl, unlocked.contains(lvl)),
+                              ))
+                          .toList(),
                     ),
                   ),
                   const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
-                        child: ScaleOnTap(
-                          onTap: unlocked.contains(selectedLevel) ? () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => QuizPage(level: selectedLevel)));
-                          } : null,
-                          child: ElevatedButton(
-                            onPressed: null,
-                            child: const Text('Start Quiz'),
-                          ),
+                        child: ElevatedButton(
+                          onPressed: unlocked.contains(selectedLevel)
+                              ? () {
+                                  confettiController.play();
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) => QuizPage(level: selectedLevel)));
+                                }
+                              : null,
+                          child: const Text('Start Quiz'),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      ScaleOnTap(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardPage())),
+                      Expanded(
                         child: ElevatedButton(
-                          onPressed: null,
+                          onPressed: () => Navigator.push(
+                              context, MaterialPageRoute(builder: (_) => const LeaderboardPage())),
                           child: const Text('Leaderboard'),
                         ),
                       ),
                     ],
+                  ),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: ConfettiWidget(
+                      confettiController: confettiController,
+                      blastDirectionality: BlastDirectionality.explosive,
+                      shouldLoop: false,
+                      colors: const [Colors.blue, Colors.red, Colors.yellow, Colors.pink, Colors.green],
+                      numberOfParticles: 20,
+                    ),
                   ),
                 ],
               ),
@@ -130,34 +155,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-/*import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import 'quiz_page.dart';
-
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final userEmail = AuthService().currentUser?.email ?? 'Guest';
-    return Scaffold(
-      appBar: AppBar(title: const Text('Quiz Home')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Welcome $userEmail!', style: const TextStyle(fontSize: 20)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const QuizPage()),
-              ),
-              child: const Text('Start Quiz'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}*/
