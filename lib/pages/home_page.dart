@@ -5,6 +5,7 @@ import 'leaderboard_page.dart';
 import '../theme.dart';
 import 'package:confetti/confetti.dart';
 import 'sign_in_page.dart';
+import '../animated_background.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
