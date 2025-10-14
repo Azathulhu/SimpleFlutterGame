@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'quiz_page.dart';
 import 'leaderboard_page.dart';
+import 'sign_in_page.dart';
 import '../theme.dart';
 
 class HomePage extends StatefulWidget {
