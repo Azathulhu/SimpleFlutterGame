@@ -12,38 +12,67 @@ class LeaderboardPage extends StatefulWidget {
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
   final QuizService quizService = QuizService();
-  final AuthService auth = AuthService();
-  String selectedLevel = 'easy';
   final levels = ['easy', 'medium', 'hard'];
+  String selectedLevel = 'easy';
   bool loading = true;
-  List<Map<String, dynamic>> entries = [];
+  List<Map<String, dynamic>> leaderboard = [];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadLeaderboard();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadLeaderboard() async {
     setState(() => loading = true);
-    final res = await quizService.fetchLeaderboard(selectedLevel, 20);
+    final res = await quizService.fetchLeaderboard(level: selectedLevel, limit: 20);
     setState(() {
-      entries = res;
+      leaderboard = res;
       loading = false;
     });
   }
 
-  Widget entryCard(Map<String, dynamic> row, int rank) {
-    final username = ((row['users'] ?? {})['username']) ?? 'Unknown';
-    final score = row['score'] ?? 0;
-    final isMe = auth.currentUser != null; // (We could compare by user_id if returned)
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(child: Text('#${rank+1}')),
-        title: Text(username),
-        trailing: Text(score.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+  Widget levelButton(String level) {
+    final isSelected = selectedLevel == level;
+    return GestureDetector(
+      onTap: () {
+        setState(() => selectedLevel = level);
+        _loadLeaderboard();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primary : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))
+          ],
+        ),
+        child: Text(
+          level.toUpperCase(),
+          style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget leaderboardEntry(Map<String, dynamic> entry, int rank) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          Text('#${rank + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(width: 16),
+          Expanded(child: Text(entry['users']['username'] ?? 'Unknown', style: const TextStyle(fontSize: 16))),
+          Text('${entry['score']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
@@ -51,48 +80,27 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Leaderboard'),
-      ),
+      appBar: AppBar(title: const Text('Leaderboard')),
       body: Padding(
-        padding: const EdgeInsets.all(14.0),
+        padding: const EdgeInsets.all(18),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: levels.map((lvl) {
-                final selected = lvl == selectedLevel;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() => selectedLevel = lvl);
-                        _load();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: selected ? AppTheme.primary : Colors.white,
-                        foregroundColor: selected ? Colors.white : Colors.black87,
-                        elevation: selected ? 6 : 2,
-                      ),
-                      child: Text(lvl.toUpperCase()),
+            const Text('Select Level', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: levels.map((lvl) => levelButton(lvl)).toList()),
+            ),
+            const SizedBox(height: 24),
+            loading
+                ? const Center(child: CircularProgressIndicator())
+                : Expanded(
+                    child: ListView.builder(
+                      itemCount: leaderboard.length,
+                      itemBuilder: (_, index) => leaderboardEntry(leaderboard[index], index),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 14),
-            if (loading) const Center(child: CircularProgressIndicator()) else Expanded(
-              child: RefreshIndicator(
-                onRefresh: _load,
-                child: ListView.builder(
-                  itemCount: entries.length,
-                  itemBuilder: (_, idx) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: entryCard(entries[idx], idx),
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
