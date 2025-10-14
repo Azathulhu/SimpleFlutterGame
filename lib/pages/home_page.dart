@@ -55,9 +55,7 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(
           color: enabled ? (isSelected ? AppTheme.primary : Colors.white) : Colors.grey.shade200,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: enabled
-              ? [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))]
-              : null,
+          boxShadow: enabled ? [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))] : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -75,84 +73,98 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Quiz Home'),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              await auth.signOut();
-              if (!mounted) return;
-              Navigator.of(context)
-                  .pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
-            },
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-          )
-        ],
-      ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Welcome, ${auth.currentUser?.email ?? 'Guest'}', style: const TextStyle(fontSize: 18)),
-                  const SizedBox(height: 18),
-                  const Text('Choose Level', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: levels
-                          .map((lvl) => Padding(
-                                padding: const EdgeInsets.only(right: 12),
-                                child: levelCard(lvl, unlocked.contains(lvl)),
-                              ))
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: unlocked.contains(selectedLevel)
-                              ? () {
-                                  confettiController.play();
-                                  Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) => QuizPage(level: selectedLevel)));
-                                }
-                              : null,
-                          child: const Text('Start Quiz'),
-                        ),
+    return AnimatedGradientBackground(
+      child: GlobalTapRipple(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            title: const Text('Quiz Home'),
+            actions: [
+              IconButton(
+                onPressed: () async {
+                  await auth.signOut();
+                  if (!mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
+                },
+                icon: const Icon(Icons.logout),
+                tooltip: 'Sign out',
+              )
+            ],
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Welcome, ${auth.currentUser?.email ?? 'Guest'}', style: const TextStyle(fontSize: 18)),
+                          const SizedBox(height: 18),
+                          const Text('Choose Level', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: levels
+                                  .map((lvl) => Padding(
+                                        padding: const EdgeInsets.only(right: 12),
+                                        child: levelCard(lvl, unlocked.contains(lvl)),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: unlocked.contains(selectedLevel)
+                                      ? () {
+                                          confettiController.play();
+                                          Navigator.push(context, MaterialPageRoute(builder: (_) => QuizPage(level: selectedLevel)));
+                                        }
+                                      : null,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 14),
+                                    child: Text('Start Quiz'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardPage())),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 14),
+                                    child: Text('Leaderboard'),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: ConfettiWidget(
+                              confettiController: confettiController,
+                              blastDirectionality: BlastDirectionality.explosive,
+                              shouldLoop: false,
+                              colors: const [Colors.blue, Colors.red, Colors.yellow, Colors.pink, Colors.green],
+                              numberOfParticles: 20,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.push(
-                              context, MaterialPageRoute(builder: (_) => const LeaderboardPage())),
-                          child: const Text('Leaderboard'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: ConfettiWidget(
-                      confettiController: confettiController,
-                      blastDirectionality: BlastDirectionality.explosive,
-                      shouldLoop: false,
-                      colors: const [Colors.blue, Colors.red, Colors.yellow, Colors.pink, Colors.green],
-                      numberOfParticles: 20,
-                    ),
-                  ),
-                ],
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 }
