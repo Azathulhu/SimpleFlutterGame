@@ -38,6 +38,7 @@ dependencies:
   supabase_flutter: ^2.10.2
   flutter_riverpod: ^3.0.1
   google_fonts: ^6.3.2
+  confetti: ^0.7.0
   fluttertoast: ^9.0.0
 
 dev_dependencies:
