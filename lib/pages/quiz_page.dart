@@ -25,7 +25,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   late AnimationController _controller;
   late ConfettiController _confettiController;
 
-  // progression threshold: percent to unlock next level
   static const double unlockThreshold = 0.6; // 60%
 
   @override
@@ -44,7 +43,10 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _load() async {
-    setState(() { loading = true; errorMessage = null; });
+    setState(() {
+      loading = true;
+      errorMessage = null;
+    });
     final fetched = await quizService.fetchQuestions(widget.level, 5);
     if (fetched.isEmpty) {
       setState(() {
@@ -53,7 +55,10 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       });
       return;
     }
-    setState(() { questions = fetched; loading = false; });
+    setState(() {
+      questions = fetched;
+      loading = false;
+    });
     _controller.forward();
   }
 
@@ -61,18 +66,15 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final current = questions[currentIndex];
     final correct = current.answer == selected;
     if (correct) score++;
-    // animate a small success
     _controller.forward(from: 0);
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
     } else {
-      // Completed quiz
       _onComplete();
     }
   }
 
   Future<void> _onComplete() async {
-    // submit score first
     final user = auth.currentUser;
     if (user != null) {
       await quizService.submitScore(userId: user.id, score: score, level: widget.level);
@@ -81,7 +83,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final unlockedNext = (widget.level == 'easy' && percent >= unlockThreshold) ||
         (widget.level == 'medium' && percent >= unlockThreshold);
     if (unlockedNext) {
-      // unlock the next level if applicable
       final next = widget.level == 'easy' ? 'medium' : (widget.level == 'medium' ? 'hard' : null);
       if (next != null) {
         await auth.unlockLevel(next);
@@ -89,7 +90,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       _confettiController.play();
     }
 
-    // show result dialog
     if (!mounted) return;
     showDialog(
       context: context,
@@ -101,10 +101,11 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
             Text('Score: $score / ${questions.length}'),
             const SizedBox(height: 8),
             Text('Percent: ${(100 * (questions.isEmpty ? 0 : score / questions.length)).toStringAsFixed(0)}%'),
-            if (unlockedNext) Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('Congrats — you unlocked the next level!', style: TextStyle(color: AppTheme.primary)),
-            ),
+            if (unlockedNext)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Congrats — you unlocked the next level!', style: TextStyle(color: AppTheme.primary)),
+              ),
           ],
         ),
         actions: [
@@ -118,7 +119,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // restart quiz
               setState(() {
                 currentIndex = 0;
                 score = 0;
@@ -136,93 +136,102 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     if (loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Quiz')),
-        body: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(errorMessage!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 12),
-            ElevatedButton(onPressed: _load, child: const Text('Retry')),
-          ]),
+      return AnimatedGradientBackground(
+        child: GlobalTapRipple(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(title: const Text('Quiz')),
+            body: Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 12),
+                ElevatedButton(onPressed: _load, child: const Text('Retry')),
+              ]),
+            ),
+          ),
         ),
       );
     }
 
     final q = questions[currentIndex];
     final progress = (currentIndex) / questions.length;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.level.toUpperCase()} Quiz'),
-      ),
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                LinearProgressIndicator(value: progress, minHeight: 8),
-                const SizedBox(height: 12),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  transitionBuilder: (child, animation) => SlideTransition(
-                    position: Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(animation),
-                    child: FadeTransition(opacity: animation, child: child),
-                  ),
-                  child: Card(
-                    key: ValueKey(q.id),
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Question ${currentIndex + 1}/${questions.length}', style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                          const SizedBox(height: 8),
-                          Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 16),
-                          ...q.options.map((opt) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: ScaleOnTap(
-                              onTap: () => _answer(opt),
-                              child: ElevatedButton(
-                                onPressed: null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black87,
-                                  elevation: 2,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                ),
-                                child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
-                              ),
-                            ),
-                          )),
-                        ],
+    return AnimatedGradientBackground(
+      child: GlobalTapRipple(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(title: Text('${widget.level.toUpperCase()} Quiz'), backgroundColor: Colors.transparent, elevation: 0),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    LinearProgressIndicator(value: progress, minHeight: 8),
+                    const SizedBox(height: 12),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      transitionBuilder: (child, animation) => SlideTransition(
+                        position: Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(animation),
+                        child: FadeTransition(opacity: animation, child: child),
+                      ),
+                      child: Card(
+                        key: ValueKey(q.id),
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Question ${currentIndex + 1}/${questions.length}',
+                                  style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                              const SizedBox(height: 8),
+                              Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 16),
+                              ...q.options.map((opt) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: ScaleOnTap(
+                                      onTap: () => _answer(opt),
+                                      child: ElevatedButton(
+                                        onPressed: () => _answer(opt),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          foregroundColor: Colors.black87,
+                                          elevation: 2,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                        ),
+                                        child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
+                                      ),
+                                    ),
+                                  )),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    Text('Score: $score', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: ConfettiWidget(
+                        confettiController: _confettiController,
+                        blastDirectionality: BlastDirectionality.explosive,
+                        shouldLoop: false,
+                        colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+                        emissionFrequency: 0.05,
+                        numberOfParticles: 15,
+                        gravity: 0.3,
+                      ),
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                Text('Score: $score', style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 12),
-              ],
+              ),
             ),
           ),
-          // Confetti overlay
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
-              emissionFrequency: 0.05,
-              numberOfParticles: 15,
-              gravity: 0.3,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
