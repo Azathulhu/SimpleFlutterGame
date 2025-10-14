@@ -3,6 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../services/auth_service.dart';
 import 'home_page.dart';
 import '../theme.dart';
+import '../animated_background.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
