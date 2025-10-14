@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../theme.dart';
+import '../animated_background.dart';
 
 class LeaderboardPage extends StatefulWidget {
   const LeaderboardPage({super.key});
