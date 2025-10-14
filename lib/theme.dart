@@ -1,103 +1,92 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Palette
-  static const Color primary = Color(0xFF2E8BFF); // soft sky-blue
-  static const Color accent = Color(0xFF4DD0E1); // light blue-green
-  static const Color card = Colors.white;
-  static const Color scaffold = Color(0xFFF7FEFF);
+  static const Color primary = Color(0xFF6EC1E4); // soft blue
+  static const Color accent = Color(0xFF81E6D9);  // mint green
 
   static final ThemeData lightTheme = ThemeData(
-    brightness: Brightness.light,
-    primaryColor: primary,
-    colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.indigo).copyWith(
-      primary: primary,
-      secondary: accent,
-      background: scaffold,
-    ),
-    scaffoldBackgroundColor: scaffold,
     useMaterial3: true,
+    scaffoldBackgroundColor: Colors.transparent,
+    primaryColor: primary,
+    colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blue).copyWith(
+      secondary: accent,
+    ),
     textTheme: GoogleFonts.quicksandTextTheme(),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: primary,
-        foregroundColor: Colors.white, // ensures text is visible
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 4,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        foregroundColor: Colors.white,
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 5,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
       ),
     ),
-    cardTheme: CardTheme(
-      color: card,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 6,
-      margin: EdgeInsets.zero,
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    cardTheme: const CardThemeData(
+      elevation: 8,
+      margin: EdgeInsets.all(8),
+      surfaceTintColor: Colors.white,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+      ),
     ),
   );
 }
 
-/// Animated slow gradient background that can be placed behind pages.
-class AnimatedGradientBackground extends StatefulWidget {
-  final Widget? child;
-  const AnimatedGradientBackground({this.child, super.key});
+/// A calm animated background that slowly shifts colors between blue & green
+class AnimatedBackground extends StatefulWidget {
+  final Widget child;
+  const AnimatedBackground({super.key, required this.child});
 
   @override
-  State<AnimatedGradientBackground> createState() => _AnimatedGradientBackgroundState();
+  State<AnimatedBackground> createState() => _AnimatedBackgroundState();
 }
 
-class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground> {
-  // list of palette pairs to cycle through slowly
-  final List<List<Color>> palettes = [
-    [Color(0xFFe6feff), Color(0xFFd9f7f6)],
-    [Color(0xFFd9f7f6), Color(0xFFe0f7fa)],
-    [Color(0xFFe0f7fa), Color(0xFFe6f4ff)],
-    [Color(0xFFe6f4ff), Color(0xFFe8f9ff)],
-  ];
-
-  int index = 0;
-  late Timer timer;
+class _AnimatedBackgroundState extends State<AnimatedBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Color?> _color1;
+  late Animation<Color?> _color2;
 
   @override
   void initState() {
     super.initState();
-    timer = Timer.periodic(const Duration(seconds: 6), (_) {
-      setState(() => index = (index + 1) % palettes.length);
-    });
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 8))
+          ..repeat(reverse: true);
+
+    _color1 = ColorTween(
+      begin: const Color(0xFFD7F9F8), // soft mint
+      end: const Color(0xFFB3E5FC),   // light sky blue
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    _color2 = ColorTween(
+      begin: const Color(0xFFE1F5FE), // bluish white
+      end: const Color(0xFFCCF2F4),   // light green
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
   void dispose() {
-    timer.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = palettes[index];
-    final next = palettes[(index + 1) % palettes.length];
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(seconds: 6),
-      curve: Curves.easeInOut,
-      builder: (context, t, _) {
-        // lerp colors
-        final c1 = Color.lerp(colors[0], next[0], t)!;
-        final c2 = Color.lerp(colors[1], next[1], t)!;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
         return Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
+              colors: [_color1.value!, _color2.value!],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [c1, c2],
             ),
           ),
           child: widget.child,
@@ -107,105 +96,93 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
   }
 }
 
-/// Shows a subtle ripple circle at each tap location — works globally when placed over content.
-class GlobalTapRipple extends StatefulWidget {
+/// A ripple animation that appears wherever the user taps
+class RippleTouchEffect extends StatefulWidget {
   final Widget child;
-  const GlobalTapRipple({required this.child, super.key});
+  const RippleTouchEffect({super.key, required this.child});
 
   @override
-  State<GlobalTapRipple> createState() => _GlobalTapRippleState();
+  State<RippleTouchEffect> createState() => _RippleTouchEffectState();
 }
 
-class _Ripple {
-  Offset pos;
-  DateTime start;
-  _Ripple(this.pos) : start = DateTime.now();
-}
+class _RippleTouchEffectState extends State<RippleTouchEffect> {
+  Offset? _tapPosition;
+  double _rippleRadius = 0;
+  bool _isRippling = false;
+  Timer? _timer;
 
-class _GlobalTapRippleState extends State<GlobalTapRipple> with TickerProviderStateMixin {
-  final List<_Ripple> ripples = [];
-  late Ticker _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    _ticker = createTicker((_) {
-      // remove ripples older than 700ms
-      ripples.removeWhere((r) => DateTime.now().difference(r.start) > const Duration(milliseconds: 700));
-      if (mounted) setState(() {});
+  void _startRipple(Offset position) {
+    setState(() {
+      _tapPosition = position;
+      _rippleRadius = 0;
+      _isRippling = true;
     });
-    _ticker.start();
+
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+      setState(() => _rippleRadius += 20);
+      if (_rippleRadius > 300) {
+        _isRippling = false;
+        timer.cancel();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _ticker.dispose();
+    _timer?.cancel();
     super.dispose();
-  }
-
-  void _handleTap(TapDownDetails d) {
-    final local = d.localPosition;
-    setState(() => ripples.add(_Ripple(local)));
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTapDown: (details) => _startRipple(details.localPosition),
       behavior: HitTestBehavior.translucent,
-      onTapDown: _handleTap,
       child: Stack(
         children: [
           widget.child,
-          // render ripples
-          IgnorePointer(
-            child: CustomPaint(
-              painter: _RipplePainter(ripples),
-              size: Size.infinite,
+          if (_isRippling && _tapPosition != null)
+            Positioned(
+              left: _tapPosition!.dx - _rippleRadius / 2,
+              top: _tapPosition!.dy - _rippleRadius / 2,
+              child: AnimatedOpacity(
+                opacity: _isRippling ? 0.3 : 0.0,
+                duration: const Duration(milliseconds: 400),
+                child: Container(
+                  width: _rippleRadius,
+                  height: _rippleRadius,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white54,
+                  ),
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _RipplePainter extends CustomPainter {
-  final List<_Ripple> ripples;
-  _RipplePainter(this.ripples);
-  @override
-  void paint(Canvas canvas, Size size) {
-    final now = DateTime.now();
-    for (final r in ripples) {
-      final dt = now.difference(r.start).inMilliseconds;
-      final progress = dt / 700.0;
-      final radius = 20 + progress * 80;
-      final alpha = (150 * (1 - progress)).clamp(0, 150).toInt();
-      final paint = Paint()..color = Color.fromARGB(alpha, 46, 139, 255);
-      canvas.drawCircle(r.pos, radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RipplePainter old) => true;
-}
-
-/// Small animated scale button wrapper
+/// Tap scale animation for buttons
 class ScaleOnTap extends StatefulWidget {
   final Widget child;
   final void Function()? onTap;
-  final double downScale;
-  const ScaleOnTap({required this.child, this.onTap, this.downScale = 0.96, super.key});
+  const ScaleOnTap({required this.child, this.onTap, super.key});
 
   @override
   State<ScaleOnTap> createState() => _ScaleOnTapState();
 }
 
-class _ScaleOnTapState extends State<ScaleOnTap> with SingleTickerProviderStateMixin {
+class _ScaleOnTapState extends State<ScaleOnTap>
+    with SingleTickerProviderStateMixin {
   double scale = 1.0;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => scale = widget.downScale),
+      onTapDown: (_) => setState(() => scale = 0.96),
       onTapUp: (_) {
         setState(() => scale = 1.0);
         widget.onTap?.call();
