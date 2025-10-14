@@ -72,7 +72,7 @@ class _HomePageState extends State<HomePage> {
             onPressed: () async {
               await auth.signOut();
               if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
+              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => SignInPage()), (route) => false);
             },
             icon: const Icon(Icons.logout),
             tooltip: 'Sign out',
