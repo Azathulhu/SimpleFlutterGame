@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
-import '../services/auth_service.dart';
 import '../theme.dart';
 
 class LeaderboardPage extends StatefulWidget {
@@ -45,9 +44,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primary : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))
-          ],
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))],
         ),
         child: Text(
           level.toUpperCase(),
@@ -79,29 +76,39 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Leaderboard')),
-      body: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Select Level', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: levels.map((lvl) => levelButton(lvl)).toList()),
-            ),
-            const SizedBox(height: 24),
-            loading
-                ? const Center(child: CircularProgressIndicator())
-                : Expanded(
-                    child: ListView.builder(
-                      itemCount: leaderboard.length,
-                      itemBuilder: (_, index) => leaderboardEntry(leaderboard[index], index),
+    return AnimatedGradientBackground(
+      child: GlobalTapRipple(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(title: const Text('Leaderboard'), backgroundColor: Colors.transparent, elevation: 0),
+          body: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Select Level', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: levels.map((lvl) => levelButton(lvl)).toList()),
                     ),
-                  ),
-          ],
+                    const SizedBox(height: 24),
+                    loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : Expanded(
+                            child: ListView.builder(
+                              itemCount: leaderboard.length,
+                              itemBuilder: (_, index) => leaderboardEntry(leaderboard[index], index),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
