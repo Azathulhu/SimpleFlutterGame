@@ -1,6 +1,6 @@
 // lib/widgets/animated_background.dart
 import 'package:flutter/material.dart';
-
+//
 /// Animated soft gradient background
 class AnimatedGradientBackground extends StatefulWidget {
   final Widget child;
