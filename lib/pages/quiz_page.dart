@@ -4,6 +4,7 @@ import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
 import 'dart:math';
+import '../animated_background.dart';
 
 class QuizPage extends StatefulWidget {
   final String level;
