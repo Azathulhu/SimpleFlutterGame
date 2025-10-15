@@ -4,7 +4,6 @@ import '../services/auth_service.dart';
 import 'sign_up_page.dart';
 import 'home_page.dart';
 import '../theme.dart';
-import '../animated_background.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
