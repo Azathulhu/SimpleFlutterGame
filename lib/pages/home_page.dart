@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/quiz_service.dart';
 import 'quiz_page.dart';
-import 'leaderboard_page.dart';
 import '../theme.dart';
 import 'package:confetti/confetti.dart';
 import 'sign_in_page.dart';
@@ -15,9 +15,15 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final AuthService auth = AuthService();
+  final QuizService quizService = QuizService();
+
   List<String> unlocked = ['easy'];
   String selectedLevel = 'easy';
   bool loading = true;
+
+  List<Map<String, dynamic>> topScores = [];
+  bool leaderboardLoading = true;
+
   final levels = ['easy', 'medium', 'hard'];
 
   late ConfettiController confettiController;
@@ -47,12 +53,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       if (!unlocked.contains(selectedLevel)) selectedLevel = unlocked.first;
       loading = false;
     });
+    _loadLeaderboardForHome();
+  }
+
+  Future<void> _loadLeaderboardForHome() async {
+    setState(() => leaderboardLoading = true);
+    final res = await quizService.fetchLeaderboard(level: selectedLevel, limit: 5);
+    setState(() {
+      topScores = res;
+      leaderboardLoading = false;
+    });
   }
 
   Widget levelCard(String level, bool enabled) {
     final isSelected = selectedLevel == level;
     return GestureDetector(
-      onTap: enabled ? () => setState(() => selectedLevel = level) : null,
+      onTap: enabled
+          ? () {
+              setState(() {
+                selectedLevel = level;
+              });
+              _loadLeaderboardForHome();
+            }
+          : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(20),
@@ -131,8 +154,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (_) =>
-                                          QuizPage(level: selectedLevel)));
+                                    builder: (_) => QuizPage(
+                                      level: selectedLevel,
+                                      onLevelUnlocked: (nextLevel) {
+                                        setState(() {
+                                          if (!unlocked.contains(nextLevel)) unlocked.add(nextLevel);
+                                        });
+                                      },
+                                    )); 
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
@@ -148,6 +177,24 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+              Text('Top Scores', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 12),
+              leaderboardLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: topScores.length,
+                      itemBuilder: (_, index) {
+                        final entry = topScores[index];
+                        return ListTile(
+                          leading: Text('#${index + 1}'),
+                          title: Text(entry['users']['username'] ?? 'Unknown'),
+                          trailing: Text('${entry['score']}'),
+                        );
+                      },
+                    ),
               Align(
                 alignment: Alignment.topCenter,
                 child: ConfettiWidget(
@@ -181,13 +228,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget leaderboardTab() {
-    return Center(
-      child: ElevatedButton(
-        onPressed: () => Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const LeaderboardPage())),
-        child: const Text('Go to Leaderboard'),
-      ),
-    );
+    return playTab(); // Reuse the top scores list for simplicity
   }
 
   @override
