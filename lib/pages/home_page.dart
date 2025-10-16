@@ -1,12 +1,12 @@
-// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../services/quiz_service.dart';
 import 'quiz_page.dart';
+import 'leaderboard_page.dart';
 import '../theme.dart';
 import 'package:confetti/confetti.dart';
 import 'sign_in_page.dart';
 import '../animated_background.dart';
+import '../services/quiz_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,11 +23,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool loading = true;
   final levels = ['easy', 'medium', 'hard'];
 
-  List<Map<String, dynamic>> leaderboard = [];
-  bool leaderboardLoading = true;
-
   late ConfettiController confettiController;
   late TabController tabController;
+
+  // Leaderboard data
+  List<Map<String, dynamic>> leaderboard = [];
+  bool leaderboardLoading = true;
 
   @override
   void initState() {
@@ -68,10 +69,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget levelCard(String level, bool enabled) {
     final isSelected = selectedLevel == level;
     return GestureDetector(
-      onTap: enabled ? () {
-        setState(() => selectedLevel = level);
-        _loadLeaderboard(); // update leaderboard for selected level
-      } : null,
+      onTap: enabled
+          ? () {
+              setState(() => selectedLevel = level);
+              _loadLeaderboard(); // refresh leaderboard for selected level
+            }
+          : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(20),
@@ -147,15 +150,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       onPressed: unlocked.contains(selectedLevel)
                           ? () async {
                               confettiController.play();
-                              // Unlock next level immediately after quiz
+                              // navigate to QuizPage
                               await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          QuizPage(level: selectedLevel)));
-                              // reload unlocked levels instantly after returning
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => QuizPage(
+                                    level: selectedLevel,
+                                  ),
+                                ),
+                              );
+                              // refresh unlocked levels and leaderboard after quiz
                               await _loadUnlocked();
-                              // update leaderboard for current level
                               await _loadLeaderboard();
                             }
                           : null,
@@ -172,36 +177,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              Align(
-                alignment: Alignment.topCenter,
-                child: ConfettiWidget(
-                  confettiController: confettiController,
-                  blastDirectionality: BlastDirectionality.explosive,
-                  shouldLoop: false,
-                  colors: const [
-                    Colors.blue,
-                    Colors.red,
-                    Colors.yellow,
-                    Colors.pink,
-                    Colors.green
-                  ],
-                  numberOfParticles: 25,
-                  maxBlastForce: 30,
-                  minBlastForce: 10,
-                  emissionFrequency: 0.05,
-                ),
-              ),
             ],
           );
-  }
-
-  Widget shopTab() {
-    return const Center(
-      child: Text(
-        'Shop Coming Soon!',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-      ),
-    );
   }
 
   Widget leaderboardTab() {
@@ -209,7 +186,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         ? const Center(child: CircularProgressIndicator())
         : ListView.builder(
             itemCount: leaderboard.length,
-            padding: const EdgeInsets.all(12),
             itemBuilder: (_, index) {
               final entry = leaderboard[index];
               return Container(
@@ -267,7 +243,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               unselectedLabelColor: Colors.grey.shade500,
               tabs: const [
                 Tab(text: 'Play'),
-                Tab(text: 'Shop'),
                 Tab(text: 'Leaderboard'),
               ],
             ),
@@ -278,7 +253,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               controller: tabController,
               children: [
                 playTab(),
-                shopTab(),
                 leaderboardTab(),
               ],
             ),
