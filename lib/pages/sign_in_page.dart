@@ -39,7 +39,7 @@ class _SignInPageState extends State<SignInPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(height: 8),
-                        Text('Quiz Master',
+                        Text('I.T Quiz',
                             style: TextStyle(
                                 fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.primary)),
                         const SizedBox(height: 16),
