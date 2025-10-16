@@ -1,3 +1,4 @@
+// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/quiz_service.dart';
@@ -20,11 +21,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   List<String> unlocked = ['easy'];
   String selectedLevel = 'easy';
   bool loading = true;
-
-  List<Map<String, dynamic>> topScores = [];
-  bool leaderboardLoading = true;
-
   final levels = ['easy', 'medium', 'hard'];
+
+  List<Map<String, dynamic>> leaderboard = [];
+  bool leaderboardLoading = true;
 
   late ConfettiController confettiController;
   late TabController tabController;
@@ -36,6 +36,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         ConfettiController(duration: const Duration(seconds: 1));
     tabController = TabController(length: 3, vsync: this);
     _loadUnlocked();
+    _loadLeaderboard();
   }
 
   @override
@@ -53,14 +54,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       if (!unlocked.contains(selectedLevel)) selectedLevel = unlocked.first;
       loading = false;
     });
-    _loadLeaderboardForHome();
   }
 
-  Future<void> _loadLeaderboardForHome() async {
+  Future<void> _loadLeaderboard() async {
     setState(() => leaderboardLoading = true);
-    final res = await quizService.fetchLeaderboard(level: selectedLevel, limit: 5);
+    final res = await quizService.fetchLeaderboard(level: selectedLevel, limit: 20);
     setState(() {
-      topScores = res;
+      leaderboard = res;
       leaderboardLoading = false;
     });
   }
@@ -68,14 +68,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget levelCard(String level, bool enabled) {
     final isSelected = selectedLevel == level;
     return GestureDetector(
-      onTap: enabled
-          ? () {
-              setState(() {
-                selectedLevel = level;
-              });
-              _loadLeaderboardForHome();
-            }
-          : null,
+      onTap: enabled ? () {
+        setState(() => selectedLevel = level);
+        _loadLeaderboard(); // update leaderboard for selected level
+      } : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(20),
@@ -127,9 +123,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Select a Level',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               GridView.builder(
@@ -149,19 +145,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: unlocked.contains(selectedLevel)
-                          ? () {
+                          ? () async {
                               confettiController.play();
-                              Navigator.push(
+                              // Unlock next level immediately after quiz
+                              await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => QuizPage(
-                                      level: selectedLevel,
-                                      onLevelUnlocked: (nextLevel) {
-                                        setState(() {
-                                          if (!unlocked.contains(nextLevel)) unlocked.add(nextLevel);
-                                        });
-                                      },
-                                    )); 
+                                      builder: (_) =>
+                                          QuizPage(level: selectedLevel)));
+                              // reload unlocked levels instantly after returning
+                              await _loadUnlocked();
+                              // update leaderboard for current level
+                              await _loadLeaderboard();
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
@@ -177,24 +172,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              Text('Top Scores', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              const SizedBox(height: 12),
-              leaderboardLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: topScores.length,
-                      itemBuilder: (_, index) {
-                        final entry = topScores[index];
-                        return ListTile(
-                          leading: Text('#${index + 1}'),
-                          title: Text(entry['users']['username'] ?? 'Unknown'),
-                          trailing: Text('${entry['score']}'),
-                        );
-                      },
-                    ),
               Align(
                 alignment: Alignment.topCenter,
                 child: ConfettiWidget(
@@ -228,7 +205,32 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget leaderboardTab() {
-    return playTab(); // Reuse the top scores list for simplicity
+    return leaderboardLoading
+        ? const Center(child: CircularProgressIndicator())
+        : ListView.builder(
+            itemCount: leaderboard.length,
+            padding: const EdgeInsets.all(12),
+            itemBuilder: (_, index) {
+              final entry = leaderboard[index];
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                ),
+                child: Row(
+                  children: [
+                    Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(width: 16),
+                    Expanded(child: Text(entry['users']['username'] ?? 'Unknown', style: const TextStyle(fontSize: 16))),
+                    Text('${entry['score']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              );
+            },
+          );
   }
 
   @override
