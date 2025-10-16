@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
-import 'dart:math';
 import '../animated_background.dart';
 
 class QuizPage extends StatefulWidget {
   final String level;
-  const QuizPage({required this.level, super.key});
+  final Function(String)? onLevelUnlocked;
+
+  const QuizPage({required this.level, this.onLevelUnlocked, super.key});
 
   @override
   State<QuizPage> createState() => _QuizPageState();
@@ -23,6 +24,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   int score = 0;
   bool loading = true;
   String? errorMessage;
+
   late AnimationController _controller;
   late ConfettiController _confettiController;
 
@@ -68,6 +70,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final correct = current.answer == selected;
     if (correct) score++;
     _controller.forward(from: 0);
+
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
     } else {
@@ -80,15 +83,20 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     if (user != null) {
       await quizService.submitScore(userId: user.id, score: score, level: widget.level);
     }
+
     final percent = questions.isNotEmpty ? score / questions.length : 0;
     final unlockedNext = (widget.level == 'easy' && percent >= unlockThreshold) ||
         (widget.level == 'medium' && percent >= unlockThreshold);
+
+    String? next;
     if (unlockedNext) {
-      final next = widget.level == 'easy' ? 'medium' : (widget.level == 'medium' ? 'hard' : null);
+      if (widget.level == 'easy') next = 'medium';
+      if (widget.level == 'medium') next = 'hard';
       if (next != null) {
         await auth.unlockLevel(next);
+        if (widget.onLevelUnlocked != null) widget.onLevelUnlocked!(next);
+        _confettiController.play();
       }
-      _confettiController.play();
     }
 
     if (!mounted) return;
@@ -156,11 +164,16 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
 
     final q = questions[currentIndex];
     final progress = (currentIndex) / questions.length;
+
     return AnimatedGradientBackground(
       child: GlobalTapRipple(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: AppBar(title: Text('${widget.level.toUpperCase()} Quiz'), backgroundColor: Colors.transparent, elevation: 0),
+          appBar: AppBar(
+            title: Text('${widget.level.toUpperCase()} Quiz'),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
           body: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),
@@ -192,19 +205,16 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                               const SizedBox(height: 16),
                               ...q.options.map((opt) => Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 6),
-                                    child: ScaleOnTap(
-                                      onTap: () => _answer(opt),
-                                      child: ElevatedButton(
-                                        onPressed: () => _answer(opt),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.black87,
-                                          elevation: 2,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                        ),
-                                        child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
+                                    child: ElevatedButton(
+                                      onPressed: () => _answer(opt),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: Colors.black87,
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                                       ),
+                                      child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
                                     ),
                                   )),
                             ],
@@ -215,17 +225,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                     const SizedBox(height: 16),
                     Text('Score: $score', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: ConfettiWidget(
-                        confettiController: _confettiController,
-                        blastDirectionality: BlastDirectionality.explosive,
-                        shouldLoop: false,
-                        colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
-                        emissionFrequency: 0.05,
-                        numberOfParticles: 15,
-                        gravity: 0.3,
-                      ),
+                    ConfettiWidget(
+                      confettiController: _confettiController,
+                      blastDirectionality: BlastDirectionality.explosive,
+                      shouldLoop: false,
+                      colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+                      emissionFrequency: 0.05,
+                      numberOfParticles: 15,
+                      gravity: 0.3,
                     ),
                   ],
                 ),
