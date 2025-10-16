@@ -50,22 +50,43 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: enabled ? () => setState(() => selectedLevel = level) : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.all(14),
-        width: 120,
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+        width: 140,
         decoration: BoxDecoration(
-          color: enabled ? (isSelected ? AppTheme.primary : Colors.white) : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: enabled ? [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))] : null,
+          gradient: enabled
+              ? isSelected
+                  ? LinearGradient(colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)])
+                  : LinearGradient(colors: [Colors.white, Colors.white70])
+              : LinearGradient(colors: [Colors.grey.shade200, Colors.grey.shade300]),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    offset: const Offset(0, 6),
+                  )
+                ]
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(level.toUpperCase(),
-                style: TextStyle(color: enabled ? (isSelected ? Colors.white : Colors.black87) : Colors.grey, fontWeight: FontWeight.bold)),
+            Text(
+              level.toUpperCase(),
+              style: TextStyle(
+                  color: enabled ? (isSelected ? Colors.white : Colors.black87) : Colors.grey,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16),
+            ),
             const SizedBox(height: 6),
-            Text(enabled ? 'Unlocked' : 'Locked',
-                style: TextStyle(fontSize: 12, color: enabled ? (isSelected ? Colors.white70 : Colors.black54) : Colors.grey)),
+            Text(
+              enabled ? 'Unlocked' : 'Locked',
+              style: TextStyle(
+                  fontSize: 12,
+                  color: enabled ? (isSelected ? Colors.white70 : Colors.black54) : Colors.grey),
+            ),
           ],
         ),
       ),
@@ -79,23 +100,28 @@ class _HomePageState extends State<HomePage> {
         child: Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
-            title: const Text('Quiz Home'),
+            title: const Text(
+              'Dashboard',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+            ),
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
             actions: [
               IconButton(
                 onPressed: () async {
                   await auth.signOut();
                   if (!mounted) return;
-                  Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
+                  Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
                 },
                 icon: const Icon(Icons.logout),
                 tooltip: 'Sign out',
               )
             ],
-            backgroundColor: Colors.transparent,
-            elevation: 0,
           ),
           body: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(20),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 900),
@@ -104,22 +130,32 @@ class _HomePageState extends State<HomePage> {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Welcome, ${auth.currentUser?.email ?? 'Guest'}', style: const TextStyle(fontSize: 18)),
-                          const SizedBox(height: 18),
-                          const Text('Choose Level', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 12),
+                          Text(
+                            'Welcome, ${auth.currentUser?.email ?? 'Guest'} 👋',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // LEVEL SELECTION
+                          const Text(
+                            'Choose Level',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 14),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
                               children: levels
                                   .map((lvl) => Padding(
-                                        padding: const EdgeInsets.only(right: 12),
+                                        padding: const EdgeInsets.only(right: 16),
                                         child: levelCard(lvl, unlocked.contains(lvl)),
                                       ))
                                   .toList(),
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 32),
+
+                          // ACTION BUTTONS
                           Row(
                             children: [
                               Expanded(
@@ -127,28 +163,43 @@ class _HomePageState extends State<HomePage> {
                                   onPressed: unlocked.contains(selectedLevel)
                                       ? () {
                                           confettiController.play();
-                                          Navigator.push(context, MaterialPageRoute(builder: (_) => QuizPage(level: selectedLevel)));
+                                          Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (_) => QuizPage(level: selectedLevel)));
                                         }
                                       : null,
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 14),
-                                    child: Text('Start Quiz'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 18),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    backgroundColor: AppTheme.primary,
+                                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   ),
+                                  child: const Text('Start Quiz'),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 16),
                               Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardPage())),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 14),
-                                    child: Text('Leaderboard'),
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.push(
+                                      context, MaterialPageRoute(builder: (_) => const LeaderboardPage())),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 18),
+                                    side: BorderSide(color: AppTheme.primary, width: 2),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   ),
+                                  child: const Text('Leaderboard'),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 18),
+
+                          // CONFETTI
                           Align(
                             alignment: Alignment.topCenter,
                             child: ConfettiWidget(
@@ -156,7 +207,10 @@ class _HomePageState extends State<HomePage> {
                               blastDirectionality: BlastDirectionality.explosive,
                               shouldLoop: false,
                               colors: const [Colors.blue, Colors.red, Colors.yellow, Colors.pink, Colors.green],
-                              numberOfParticles: 20,
+                              numberOfParticles: 25,
+                              maxBlastForce: 30,
+                              minBlastForce: 10,
+                              emissionFrequency: 0.05,
                             ),
                           ),
                         ],
