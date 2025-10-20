@@ -201,7 +201,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(width: 16),
                     Expanded(child: Text(entry['users']['username'] ?? 'Unknown', style: const TextStyle(fontSize: 16))),
-                    Text('${entry['score']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('${entry['time_ms']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
               );
