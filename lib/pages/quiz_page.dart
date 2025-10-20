@@ -1,7 +1,5 @@
-// lib/pages/quiz_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
 import 'leaderboard_page.dart';
@@ -22,10 +20,10 @@ class _QuizPageState extends State<QuizPage> {
   int currentIndex = 0;
   int score = 0;
 
-  // Timer and health
+  // Timer & Health
   Timer? _timer;
   double health = 1.0;
-  int totalTimeSeconds = 60; // default, will be set per difficulty
+  int totalTimeSeconds = 60;
   int elapsedMs = 0;
 
   bool loading = true;
@@ -54,8 +52,7 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Future<void> _loadQuestions() async {
-    // match QuizService expected question count (QuizService default is 5 unless you change)
-    final fetched = await quizService.fetchQuestions(widget.level, quizService.defaultQuestionCount);
+    final fetched = await quizService.fetchQuestions(widget.level, quizService.questionCount);
     setState(() {
       questions = fetched;
       loading = false;
@@ -83,9 +80,7 @@ class _QuizPageState extends State<QuizPage> {
 
   void _answer(String selected) {
     if (questions.isEmpty) return;
-    if (selected == questions[currentIndex].answer) {
-      score++;
-    }
+    if (selected == questions[currentIndex].answer) score++;
 
     if (currentIndex + 1 < questions.length) {
       setState(() => currentIndex++);
@@ -99,7 +94,6 @@ class _QuizPageState extends State<QuizPage> {
 
     final user = authService.currentUser;
     if (user != null) {
-      // submit perfect run if applicable (QuizService will ignore non-perfect runs)
       await quizService.submitPerfectRun(
         userId: user.id,
         timeMs: elapsedMs,
@@ -109,13 +103,10 @@ class _QuizPageState extends State<QuizPage> {
       );
     }
 
-    Fluttertoast.showToast(msg: "Quiz Finished! Score: $score/${questions.length}");
-
     if (!mounted) return;
-    // Replace route with leaderboard for this level so the leaderboard shows immediately
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => LeaderboardPage(initialLevel: widget.level)),
+      MaterialPageRoute(builder: (_) => LeaderboardPage(level: widget.level)),
     );
   }
 
@@ -127,9 +118,7 @@ class _QuizPageState extends State<QuizPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     final currentQuestion = questions[currentIndex];
 
@@ -143,18 +132,12 @@ class _QuizPageState extends State<QuizPage> {
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
-              child: Text("${(elapsedMs / 1000).toStringAsFixed(2)}s", style: const TextStyle(fontSize: 14)),
+              child: Text("${(elapsedMs / 1000).toStringAsFixed(2)}s"),
             ),
             const SizedBox(height: 20),
-            Text(
-              "Q ${currentIndex + 1}/${questions.length}",
-              style: const TextStyle(fontSize: 14, color: Colors.black54),
-            ),
+            Text("Q ${currentIndex + 1}/${questions.length}", style: const TextStyle(fontSize: 14, color: Colors.black54)),
             const SizedBox(height: 12),
-            Text(
-              currentQuestion.text,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            Text(currentQuestion.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             ...currentQuestion.options.map(
               (o) => Padding(
@@ -163,18 +146,14 @@ class _QuizPageState extends State<QuizPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () => _answer(o),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Align(alignment: Alignment.centerLeft, child: Text(o)),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                    child: Text(o),
                   ),
                 ),
               ),
             ),
             const Spacer(),
             Text("Score: $score/${questions.length}", style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 8),
           ],
         ),
       ),
