@@ -48,10 +48,11 @@ class QuizService {
     required String userId,
     required int score,
     required String level,
+    int? time, // time in seconds for perfect score
   }) async {
     final existing = await supabase
         .from('leaderboard')
-        .select('score')
+        .select('score, time')
         .eq('user_id', userId)
         .eq('level', level)
         .single()
@@ -62,15 +63,18 @@ class QuizService {
         'user_id': userId,
         'score': score,
         'level': level,
+        'time': time ?? 0,
         'created_at': DateTime.now().toIso8601String(),
       });
     } else {
       final currentScore = existing['score'] as int;
-      if (score > currentScore) {
+      final currentTime = existing['time'] as int? ?? 0;
+      if (score > currentScore || (score == currentScore && time != null && time < currentTime)) {
         await supabase
             .from('leaderboard')
             .update({
               'score': score,
+              'time': time ?? currentTime,
               'created_at': DateTime.now().toIso8601String(),
             })
             .eq('user_id', userId)
@@ -79,51 +83,26 @@ class QuizService {
     }
   }
 
-  Future<void> submitFastestTime({
-  required String userId,
-  required int score,
-  required String level,
-  required double fastestTime,
-}) async {
-  final existing = await supabase
-      .from('leaderboard')
-      .select('fastest_time')
-      .eq('user_id', userId)
-      .eq('level', level)
-      .single()
-      .maybeSingle();
-
-  if (existing == null) {
-    await supabase.from('leaderboard').insert({
-      'user_id': userId,
-      'score': score,
-      'level': level,
-      'fastest_time': fastestTime,
-      'created_at': DateTime.now().toIso8601String(),
-    });
-  } else {
-    final currentTime = existing['fastest_time'] as double?;
-    if (currentTime == null || fastestTime < currentTime) {
-      await supabase.from('leaderboard').update({
-        'score': score,
-        'fastest_time': fastestTime,
-        'created_at': DateTime.now().toIso8601String(),
-      }).eq('user_id', userId).eq('level', level);
-    }
-  }
-}
-
-  // ---------------- Fetch Leaderboard ----------------
-  Future<List<Map<String, dynamic>>> fetchLeaderboard({
+  // ---------------- Fetch Fastest Perfect Leaderboard ----------------
+  Future<List<Map<String, dynamic>>> fetchLeaderboardFastest({
     required String level,
     int limit = 10,
   }) async {
+    // Count total questions for level
+    final totalQuestions = await supabase
+        .from('questions')
+        .select('id', const FetchOptions(count: CountOption.exact))
+        .eq('difficulty', level)
+        .then((res) => res is List ? res.length : 0);
+
     final List res = await supabase
         .from('leaderboard')
-        .select('score, users(username)')
+        .select('time, users(username)')
         .eq('level', level)
-        .order('score', ascending: false)
+        .eq('score', totalQuestions) // perfect scores only
+        .order('time', ascending: true)
         .limit(limit);
+
     return List<Map<String, dynamic>>.from(res);
   }
 }
