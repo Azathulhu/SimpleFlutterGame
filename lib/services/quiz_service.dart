@@ -90,15 +90,56 @@ class QuizService {
     required int score,
     required int timeMs,
   }) async {
-    // upsert values - onConflict must match your unique index (user_id, level)
+    // Fetch existing leaderboard entry for this user+level
+    final existing = await supabase
+        .from('leaderboard')
+        .select('score, time_ms')
+        .eq('user_id', userId)
+        .eq('level', level)
+        .maybeSingle();
+  
+    if (existing == null) {
+      // No previous entry, insert new
+      await supabase.from('leaderboard').insert({
+        'user_id': userId,
+        'level': level,
+        'score': score,
+        'time_ms': timeMs,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } else {
+      final currentScore = (existing['score'] as int?) ?? 0;
+      final currentTime = (existing['time_ms'] as int?) ?? 0;
+  
+      // Only update if new score is higher, or same score but faster time
+      if (score > currentScore || (score == currentScore && timeMs < currentTime)) {
+        await supabase
+            .from('leaderboard')
+            .update({
+              'score': score,
+              'time_ms': timeMs,
+              'created_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId)
+            .eq('level', level);
+      }
+    }
+  }
+
+  /*Future<void> submitPerfectTime({
+    required String userId,
+    required String level,
+    required int score,
+    required int timeMs,
+  }) async {
     await supabase.from('leaderboard').upsert({
       'user_id': userId,
       'level': level,
       'score': score,
       'time_ms': timeMs,
       'created_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'user_id,level'); // comma-separated columns
-  }
+    }, onConflict: 'user_id,level');
+  }*/
 
   // ---------------- Fetch Leaderboard (fastest perfect runs) ----------------
   /// Returns only rows that have a time_ms (perfect runs), ordered ascending (fastest first).
