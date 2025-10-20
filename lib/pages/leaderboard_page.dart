@@ -32,6 +32,20 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     });
   }
 
+  Future<List<Map<String, dynamic>>> fetchLeaderboard({
+  required String level,
+  int limit = 10,
+}) async {
+  final List res = await supabase
+      .from('leaderboard')
+      .select('score, fastest_time, users(username)')
+      .eq('level', level)
+      .eq('score', 5) // only all correct answers
+      .order('fastest_time', ascending: true)
+      .limit(limit);
+  return List<Map<String, dynamic>>.from(res);
+}
+
   Widget levelButton(String level) {
     final isSelected = selectedLevel == level;
     return GestureDetector(
