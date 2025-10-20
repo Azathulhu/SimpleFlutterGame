@@ -1,7 +1,6 @@
+// lib/pages/leaderboard_page.dart
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/quiz_service.dart';
-import '../services/auth_service.dart';
 import '../theme.dart';
 import '../animated_background.dart';
 
@@ -14,7 +13,6 @@ class LeaderboardPage extends StatefulWidget {
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
   final QuizService quizService = QuizService();
-  final AuthService auth = AuthService();
 
   String selectedLevel = 'easy';
   List<Map<String, dynamic>> leaderboard = [];
@@ -30,7 +28,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   Future<void> _loadLeaderboard() async {
     setState(() => loading = true);
-    final data = await quizService.fetchLeaderboard(selectedLevel);
+    final data = await quizService.fetchLeaderboard(level: selectedLevel, limit: 50);
     setState(() {
       leaderboard = data;
       loading = false;
