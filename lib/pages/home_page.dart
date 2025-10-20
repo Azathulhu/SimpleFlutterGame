@@ -223,7 +223,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           backgroundColor: Colors.transparent,
           appBar: AppBar(
             title: Text(
-              'Welcome, ${auth.currentUser?.username ?? 'Guest'}',
+              //'Welcome, ${auth.currentUser?.email ?? 'Guest'}',
+              'Welcome, ${auth.currentUser?.email}',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
             centerTitle: true,
