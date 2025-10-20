@@ -201,7 +201,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(width: 16),
                     Expanded(child: Text(entry['users']['username'] ?? 'Unknown', style: const TextStyle(fontSize: 16))),
-                    Text('${entry['time_ms']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    //Text('${entry['time_ms']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      entry['time_ms'] != null
+                          ? '${(entry['time_ms'] / 1000).toStringAsFixed(1)}s'
+                          : '--',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               );
@@ -217,7 +223,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           backgroundColor: Colors.transparent,
           appBar: AppBar(
             title: Text(
-              'Welcome, ${auth.currentUser?.email ?? 'Guest'}',
+              'Welcome, ${auth.currentUser?.username ?? 'Guest'}',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
             centerTitle: true,
