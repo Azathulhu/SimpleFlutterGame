@@ -1,21 +1,52 @@
+// lib/services/quiz_service.dart
+import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/material.dart';
+
+class Question {
+  final String id;
+  final String text;
+  final List<String> options;
+  final String answer;
+  final String difficulty;
+
+  Question({
+    required this.id,
+    required this.text,
+    required this.options,
+    required this.answer,
+    required this.difficulty,
+  });
+
+  factory Question.fromMap(Map<String, dynamic> map) {
+    return Question(
+      id: map['id'] as String,
+      text: map['text'] as String,
+      options: List<String>.from(map['options'] as List<dynamic>),
+      answer: map['answer'] as String,
+      difficulty: map['difficulty'] as String,
+    );
+  }
+}
 
 class QuizService {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  /// Fetch questions
+  // ---------------- Fetch Questions ----------------
   Future<List<Question>> fetchQuestions(String difficulty, int limit) async {
     final List res = await supabase
         .from('questions')
         .select()
         .eq('difficulty', difficulty)
         .limit(limit);
-    final questions = res.map((q) => Question.fromMap(q)).toList();
-    questions.shuffle();
+    final List<Question> questions = res
+        .map((q) => Question.fromMap(Map<String, dynamic>.from(q as Map)))
+        .toList();
+    questions.shuffle(Random());
     return questions;
   }
 
-  /// Submit score
+  // ---------------- Submit Score (Upsert old-style score) ----------------
   Future<void> submitScore({
     required String userId,
     required int score,
@@ -23,10 +54,11 @@ class QuizService {
   }) async {
     final existing = await supabase
         .from('leaderboard')
-        .select('score')
+        .select('score, time_ms')
         .eq('user_id', userId)
         .eq('level', level)
         .maybeSingle();
+
     if (existing == null) {
       await supabase.from('leaderboard').insert({
         'user_id': userId,
@@ -35,41 +67,52 @@ class QuizService {
         'created_at': DateTime.now().toIso8601String(),
       });
     } else {
-      final currentScore = existing['score'] as int;
+      final currentScore = (existing['score'] as int?) ?? 0;
       if (score > currentScore) {
-        await supabase.from('leaderboard').update({
-          'score': score,
-          'created_at': DateTime.now().toIso8601String(),
-        }).eq('user_id', userId).eq('level', level);
+        await supabase
+            .from('leaderboard')
+            .update({
+              'score': score,
+              'created_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId)
+            .eq('level', level);
       }
     }
   }
 
-  /// Submit perfect-run time (fastest only)
+  // ---------------- Submit Perfect Time (fastest perfect run) ----------------
+  /// Only call this when the run was perfect (score == totalQuestions).
+  /// Uses upsert with onConflict to ensure one row per user+level.
   Future<void> submitPerfectTime({
     required String userId,
     required String level,
     required int score,
     required int timeMs,
   }) async {
+    // upsert values - onConflict must match your unique index (user_id, level)
     await supabase.from('leaderboard').upsert({
       'user_id': userId,
       'level': level,
       'score': score,
       'time_ms': timeMs,
       'created_at': DateTime.now().toIso8601String(),
-    }, onConflict: ['user_id', 'level'], merge: true);
+    }, onConflict: 'user_id,level'); // comma-separated columns
   }
 
-  /// Fetch leaderboard (fastest perfect runs)
-  Future<List<Map<String, dynamic>>> fetchLeaderboard(String level) async {
-    final res = await supabase
+  // ---------------- Fetch Leaderboard (fastest perfect runs) ----------------
+  /// Returns only rows that have a time_ms (perfect runs), ordered ascending (fastest first).
+  Future<List<Map<String, dynamic>>> fetchLeaderboard({
+    required String level,
+    int limit = 10,
+  }) async {
+    final List res = await supabase
         .from('leaderboard')
-        .select('score, time_ms, users(username)')
+        .select('time_ms, score, users(username)')
         .eq('level', level)
         .not('time_ms', 'is', null)
         .order('time_ms', ascending: true)
-        .limit(50);
+        .limit(limit);
     return List<Map<String, dynamic>>.from(res);
   }
 }
