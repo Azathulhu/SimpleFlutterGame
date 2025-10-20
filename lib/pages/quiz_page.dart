@@ -7,6 +7,8 @@ import '../services/auth_service.dart';
 import '../theme.dart';
 import '../animated_background.dart';
 
+const List<String> levelOrder = ['easy', 'medium', 'hard'];
+
 class QuizPage extends StatefulWidget {
   final String level;
   const QuizPage({required this.level, super.key});
@@ -69,7 +71,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       return;
     }
 
-    // set timer duration per difficulty
+    // Timer duration per difficulty
     timerDuration = widget.level == 'easy'
         ? const Duration(seconds: 60)
         : widget.level == 'medium'
@@ -89,8 +91,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     _stopwatch.reset();
     _stopwatch.start();
 
-    // update every 100ms
-    _tickTimer = Timer.periodic(const Duration(milliseconds: 100), (t) {
+    _tickTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       final elapsed = _stopwatch.elapsed;
       final remaining = timerDuration - elapsed;
       final percent = remaining.inMilliseconds / timerDuration.inMilliseconds;
@@ -105,12 +106,9 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   }
 
   void _answer(String selected) {
-    if (loading) return;
-    if (currentIndex >= questions.length) return;
+    if (loading || currentIndex >= questions.length) return;
 
-    final current = questions[currentIndex];
-    final correct = current.answer == selected;
-    if (correct) score++;
+    if (questions[currentIndex].answer == selected) score++;
 
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
@@ -133,9 +131,23 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final isPerfect = score == questions.length;
     if (isPerfect) {
       await _submitScoreAndMaybePerfect(recordPerfect: true);
+
+      // ---------------- Unlock next level ----------------
+      final currentIndex = levelOrder.indexOf(widget.level);
+      if (currentIndex != -1) {
+        // Unlock current level too (safety)
+        await auth.unlockLevel(widget.level);
+
+        // Unlock next level if exists
+        if (currentIndex < levelOrder.length - 1) {
+          final nextLevel = levelOrder[currentIndex + 1];
+          await auth.unlockLevel(nextLevel);
+        }
+      }
     } else {
       await _submitScoreAndMaybePerfect(recordPerfect: false);
     }
+
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: isPerfect);
   }
@@ -144,9 +156,10 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final user = auth.currentUser;
     if (user == null) return;
 
-    // always submit score (keeps scoreboard score field consistent)
+    // Always submit score
     await quizService.submitScore(userId: user.id, score: score, level: widget.level);
 
+    // Only perfect runs get fastest time
     if (recordPerfect) {
       final elapsedMs = _stopwatch.elapsedMilliseconds;
       await quizService.submitPerfectTime(
@@ -155,21 +168,16 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         score: score,
         timeMs: elapsedMs,
       );
-
-      // fetch fresh leaderboard immediately so UI shows the new entry
-      latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
-      _confettiController.play();
-      setState(() {});
-    } else {
-      // fetch existing leaderboard so dialog can show current top if needed
-      latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
-      setState(() {});
     }
+
+    // Fetch leaderboard
+    latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+    if (recordPerfect) _confettiController.play();
+    setState(() {});
   }
 
   void _showCompletionDialog({required bool recordedPerfect}) {
-    final elapsedMs = _stopwatch.elapsedMilliseconds;
-    final elapsedS = (elapsedMs / 1000).toStringAsFixed(2);
+    final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
 
     showDialog(
       context: context,
@@ -184,13 +192,13 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
             Text('Time: $elapsedS s'),
             const SizedBox(height: 12),
             if (recordedPerfect)
-              Text('Perfect run! Fastest time recorded if it\'s your best.', style: TextStyle(color: AppTheme.primary)),
+              Text('Perfect run! Fastest time recorded.', style: TextStyle(color: AppTheme.primary)),
             if (!recordedPerfect)
-              const Text('Only perfect runs (no wrong answers) are recorded for fastest time.'),
+              const Text('Only perfect runs are recorded for fastest time.'),
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 8),
-            const Text('Top fastest perfect runs (this level):', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Top fastest perfect runs:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             if (latestLeaderboard.isEmpty) const Text('No perfect runs recorded yet.'),
             if (latestLeaderboard.isNotEmpty)
@@ -217,7 +225,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // close dialog
+              Navigator.of(context).pop();
               Navigator.of(context).pop(); // back to home
             },
             child: const Text('Back to Home'),
@@ -225,7 +233,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // retry
               _load();
             },
             child: const Text('Retry'),
@@ -245,11 +252,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
             backgroundColor: Colors.transparent,
             appBar: AppBar(title: const Text('Quiz')),
             body: Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(errorMessage!, style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 12),
-                ElevatedButton(onPressed: _load, child: const Text('Retry')),
-              ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 12),
+                  ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                ],
+              ),
             ),
           ),
         ),
@@ -275,7 +285,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    // Health bar (timer-driven)
                     Row(
                       children: [
                         Expanded(
@@ -288,7 +297,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          // remaining seconds
                           '${((timerDuration.inMilliseconds * healthPercent) / 1000).clamp(0, timerDuration.inMilliseconds / 1000).toStringAsFixed(1)}s',
                           style: const TextStyle(fontSize: 14),
                         ),
