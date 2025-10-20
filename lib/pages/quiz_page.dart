@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
 import 'leaderboard_page.dart';
@@ -26,7 +25,7 @@ class _QuizPageState extends State<QuizPage> {
   // Timer and health
   Timer? _timer;
   double health = 1.0;
-  int totalTimeSeconds = 60; // total quiz time
+  int totalTimeSeconds = 60; // default, will be set per difficulty
   int elapsedMs = 0;
 
   bool loading = true;
@@ -34,19 +33,42 @@ class _QuizPageState extends State<QuizPage> {
   @override
   void initState() {
     super.initState();
+    _determineTimeByDifficulty();
     _loadQuestions();
   }
 
+  void _determineTimeByDifficulty() {
+    switch (widget.level) {
+      case 'easy':
+        totalTimeSeconds = 60;
+        break;
+      case 'medium':
+        totalTimeSeconds = 45;
+        break;
+      case 'hard':
+        totalTimeSeconds = 30;
+        break;
+      default:
+        totalTimeSeconds = 60;
+    }
+  }
+
   Future<void> _loadQuestions() async {
-    final fetched = await quizService.fetchQuestions(widget.level, 10); // default 10
+    // match QuizService expected question count (QuizService default is 5 unless you change)
+    final fetched = await quizService.fetchQuestions(widget.level, quizService.defaultQuestionCount);
     setState(() {
       questions = fetched;
       loading = false;
+      currentIndex = 0;
+      score = 0;
+      elapsedMs = 0;
+      health = 1.0;
     });
     _startTimer();
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       setState(() {
         elapsedMs += 100;
@@ -60,6 +82,7 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _answer(String selected) {
+    if (questions.isEmpty) return;
     if (selected == questions[currentIndex].answer) {
       score++;
     }
@@ -76,6 +99,7 @@ class _QuizPageState extends State<QuizPage> {
 
     final user = authService.currentUser;
     if (user != null) {
+      // submit perfect run if applicable (QuizService will ignore non-perfect runs)
       await quizService.submitPerfectRun(
         userId: user.id,
         timeMs: elapsedMs,
@@ -85,14 +109,13 @@ class _QuizPageState extends State<QuizPage> {
       );
     }
 
-    Fluttertoast.showToast(
-        msg: "Quiz Finished! Score: $score/${questions.length}");
+    Fluttertoast.showToast(msg: "Quiz Finished! Score: $score/${questions.length}");
 
     if (!mounted) return;
+    // Replace route with leaderboard for this level so the leaderboard shows immediately
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-          builder: (_) => LeaderboardPage(level: widget.level)),
+      MaterialPageRoute(builder: (_) => LeaderboardPage(initialLevel: widget.level)),
     );
   }
 
@@ -105,25 +128,29 @@ class _QuizPageState extends State<QuizPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final currentQuestion = questions[currentIndex];
 
     return Scaffold(
-      appBar: AppBar(title: Text("Quiz - ${widget.level}")),
+      appBar: AppBar(title: Text("Quiz - ${widget.level.toUpperCase()}")),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             LinearProgressIndicator(value: health, minHeight: 10),
-            const SizedBox(height: 12),
-            Text(
-              "Time: ${(elapsedMs / 1000).toStringAsFixed(1)}s",
-              style: const TextStyle(fontSize: 18),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text("${(elapsedMs / 1000).toStringAsFixed(2)}s", style: const TextStyle(fontSize: 14)),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+            Text(
+              "Q ${currentIndex + 1}/${questions.length}",
+              style: const TextStyle(fontSize: 14, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
             Text(
               currentQuestion.text,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -132,14 +159,22 @@ class _QuizPageState extends State<QuizPage> {
             ...currentQuestion.options.map(
               (o) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
-                child: ElevatedButton(
-                  onPressed: () => _answer(o),
-                  child: Text(o),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _answer(o),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Align(alignment: Alignment.centerLeft, child: Text(o)),
+                  ),
                 ),
               ),
             ),
             const Spacer(),
-            Text("Score: $score/${questions.length}"),
+            Text("Score: $score/${questions.length}", style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
           ],
         ),
       ),
