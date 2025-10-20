@@ -25,7 +25,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   Future<void> _loadLeaderboard() async {
     setState(() => loading = true);
-    // Fetch leaderboard for the selected level
     final res = await quizService.fetchLeaderboardFastest(level: selectedLevel, limit: 20);
     setState(() {
       leaderboard = res;
