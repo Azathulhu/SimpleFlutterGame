@@ -1,123 +1,234 @@
+// lib/pages/quiz_page.dart
 import 'dart:async';
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
-import 'home_page.dart';
-import '../animated_background.dart';
 import '../theme.dart';
+import '../animated_background.dart';
 
 class QuizPage extends StatefulWidget {
   final String level;
-  const QuizPage({super.key, required this.level});
+  const QuizPage({required this.level, super.key});
 
   @override
   State<QuizPage> createState() => _QuizPageState();
 }
 
-class _QuizPageState extends State<QuizPage> {
+class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin {
   final QuizService quizService = QuizService();
   final AuthService auth = AuthService();
 
   List<Question> questions = [];
   int currentIndex = 0;
   int score = 0;
-
-  double health = 1.0; // health bar from 1.0 to 0.0
-  late Timer healthTimer;
-  late Stopwatch stopwatch;
-
   bool loading = true;
-  bool finished = false;
+  String? errorMessage;
+
+  late ConfettiController _confettiController;
+  late Stopwatch _stopwatch;
+  Timer? _tickTimer;
+
+  double healthPercent = 1.0;
+  Duration timerDuration = const Duration(seconds: 60);
+
+  List<Map<String, dynamic>> latestLeaderboard = [];
 
   @override
   void initState() {
     super.initState();
-    _loadQuestions();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 1));
+    _stopwatch = Stopwatch();
+    _load();
   }
 
   @override
   void dispose() {
-    healthTimer.cancel();
+    _confettiController.dispose();
+    _tickTimer?.cancel();
+    _stopwatch.stop();
     super.dispose();
   }
 
-  Future<void> _loadQuestions() async {
-    setState(() => loading = true);
-    questions = await quizService.fetchQuestions(widget.level, 10);
-    currentIndex = 0;
-    score = 0;
-    health = 1.0;
-    stopwatch = Stopwatch()..start();
-
-    // health slowly decreases over time
-    healthTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      setState(() {
-        health -= 0.002; // adjust speed here
-        if (health <= 0) {
-          health = 0;
-          _finishQuiz();
-        }
-      });
+  Future<void> _load() async {
+    setState(() {
+      loading = true;
+      errorMessage = null;
+      currentIndex = 0;
+      score = 0;
+      healthPercent = 1.0;
+      latestLeaderboard = [];
     });
 
-    setState(() => loading = false);
+    final fetched = await quizService.fetchQuestions(widget.level, 5);
+    if (fetched.isEmpty) {
+      setState(() {
+        errorMessage = 'No questions available for ${widget.level}.';
+        loading = false;
+      });
+      return;
+    }
+
+    // set timer duration per difficulty
+    timerDuration = widget.level == 'easy'
+        ? const Duration(seconds: 60)
+        : widget.level == 'medium'
+            ? const Duration(seconds: 45)
+            : const Duration(seconds: 30);
+
+    setState(() {
+      questions = fetched;
+      loading = false;
+    });
+
+    _startTimer();
   }
 
-  void _answer(String answer) {
-    if (finished) return;
+  void _startTimer() {
+    _tickTimer?.cancel();
+    _stopwatch.reset();
+    _stopwatch.start();
 
-    if (answer == questions[currentIndex].answer) {
-      score++;
-      currentIndex++;
-      if (currentIndex >= questions.length) {
-        _finishQuiz();
+    // update every 100ms
+    _tickTimer = Timer.periodic(const Duration(milliseconds: 100), (t) {
+      final elapsed = _stopwatch.elapsed;
+      final remaining = timerDuration - elapsed;
+      final percent = remaining.inMilliseconds / timerDuration.inMilliseconds;
+      setState(() {
+        healthPercent = percent.clamp(0.0, 1.0);
+      });
+
+      if (remaining <= Duration.zero) {
+        _finishDueToTimeout();
       }
+    });
+  }
+
+  void _answer(String selected) {
+    if (loading) return;
+    if (currentIndex >= questions.length) return;
+
+    final current = questions[currentIndex];
+    final correct = current.answer == selected;
+    if (correct) score++;
+
+    if (currentIndex < questions.length - 1) {
+      setState(() => currentIndex++);
     } else {
-      // wrong answer ends quiz
-      _finishQuiz();
+      _completeQuizEarly();
     }
   }
 
-  Future<void> _finishQuiz() async {
-    if (finished) return;
-
-    finished = true;
-    healthTimer.cancel();
-    stopwatch.stop();
-
-    // unlock next level if finished all questions correctly
-    if (score == questions.length) {
-      final levels = ['easy', 'medium', 'hard'];
-      final nextIndex = levels.indexOf(widget.level) + 1;
-      if (nextIndex < levels.length) {
-        await auth.unlockLevel(levels[nextIndex]);
-      }
-      // submit leaderboard only if all answers correct
-      await quizService.submitScore(
-        userId: auth.currentUser!.id,
-        score: stopwatch.elapsedMilliseconds,
-        level: widget.level,
-      );
-    }
-
+  Future<void> _finishDueToTimeout() async {
+    _tickTimer?.cancel();
+    _stopwatch.stop();
+    await _submitScoreAndMaybePerfect(recordPerfect: false);
     if (!mounted) return;
+    _showCompletionDialog(recordedPerfect: false);
+  }
+
+  Future<void> _completeQuizEarly() async {
+    _tickTimer?.cancel();
+    _stopwatch.stop();
+    final isPerfect = score == questions.length;
+    if (isPerfect) {
+      await _submitScoreAndMaybePerfect(recordPerfect: true);
+    } else {
+      await _submitScoreAndMaybePerfect(recordPerfect: false);
+    }
+    if (!mounted) return;
+    _showCompletionDialog(recordedPerfect: isPerfect);
+  }
+
+  Future<void> _submitScoreAndMaybePerfect({required bool recordPerfect}) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    // always submit score (keeps scoreboard score field consistent)
+    await quizService.submitScore(userId: user.id, score: score, level: widget.level);
+
+    if (recordPerfect) {
+      final elapsedMs = _stopwatch.elapsedMilliseconds;
+      await quizService.submitPerfectTime(
+        userId: user.id,
+        level: widget.level,
+        score: score,
+        timeMs: elapsedMs,
+      );
+
+      // fetch fresh leaderboard immediately so UI shows the new entry
+      latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+      _confettiController.play();
+      setState(() {});
+    } else {
+      // fetch existing leaderboard so dialog can show current top if needed
+      latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+      setState(() {});
+    }
+  }
+
+  void _showCompletionDialog({required bool recordedPerfect}) {
+    final elapsedMs = _stopwatch.elapsedMilliseconds;
+    final elapsedS = (elapsedMs / 1000).toStringAsFixed(2);
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('Quiz Finished'),
-        content: Text('Your score: $score / ${questions.length}\n'
-            'Time: ${stopwatch.elapsed.inSeconds}.${(stopwatch.elapsed.inMilliseconds % 1000) ~/ 100}s'),
+        title: const Text('Quiz Completed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Score: $score / ${questions.length}'),
+            const SizedBox(height: 8),
+            Text('Time: $elapsedS s'),
+            const SizedBox(height: 12),
+            if (recordedPerfect)
+              Text('Perfect run! Fastest time recorded if it\'s your best.', style: TextStyle(color: AppTheme.primary)),
+            if (!recordedPerfect)
+              const Text('Only perfect runs (no wrong answers) are recorded for fastest time.'),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text('Top fastest perfect runs (this level):', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (latestLeaderboard.isEmpty) const Text('No perfect runs recorded yet.'),
+            if (latestLeaderboard.isNotEmpty)
+              SizedBox(
+                height: 200,
+                width: double.maxFinite,
+                child: ListView.builder(
+                  itemCount: latestLeaderboard.length,
+                  itemBuilder: (_, i) {
+                    final e = latestLeaderboard[i];
+                    final username = e['users']?['username'] ?? 'Unknown';
+                    final timeMs = e['time_ms'] as int?;
+                    final timeText = timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
+                    return ListTile(
+                      leading: Text('#${i + 1}'),
+                      title: Text(username),
+                      trailing: Text(timeText, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
         actions: [
-          ElevatedButton(
+          TextButton(
             onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HomePage()),
-                  (route) => false);
+              Navigator.of(context).pop(); // close dialog
+              Navigator.of(context).pop(); // back to home
             },
             child: const Text('Back to Home'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // retry
+              _load();
+            },
+            child: const Text('Retry'),
           ),
         ],
       ),
@@ -126,63 +237,113 @@ class _QuizPageState extends State<QuizPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-
-    if (finished) {
-      return const SizedBox.shrink(); // dialog handles finished state
+    if (loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (errorMessage != null) {
+      return AnimatedGradientBackground(
+        child: GlobalTapRipple(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(title: const Text('Quiz')),
+            body: Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 12),
+                ElevatedButton(onPressed: _load, child: const Text('Retry')),
+              ]),
+            ),
+          ),
+        ),
+      );
     }
 
-    final question = questions[currentIndex];
+    final q = questions[currentIndex];
+    final progress = currentIndex / questions.length;
 
     return AnimatedGradientBackground(
       child: GlobalTapRipple(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
-            title: Text(
-              '${widget.level.toUpperCase()} Quiz',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            title: Text('${widget.level.toUpperCase()} Quiz'),
             backgroundColor: Colors.transparent,
             elevation: 0,
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                LinearProgressIndicator(
-                  value: health,
-                  minHeight: 12,
-                  backgroundColor: Colors.red.shade100,
-                  valueColor: AlwaysStoppedAnimation(Colors.green),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Question ${currentIndex + 1} of ${questions.length}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  question.text,
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 20),
-                ...question.options.map((opt) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: ElevatedButton(
-                        onPressed: () => _answer(opt),
-                        child: Text(opt),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // Health bar (timer-driven)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: LinearProgressIndicator(
+                            value: healthPercent,
+                            minHeight: 12,
+                            backgroundColor: Colors.grey.shade300,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          // remaining seconds
+                          '${((timerDuration.inMilliseconds * healthPercent) / 1000).clamp(0, timerDuration.inMilliseconds / 1000).toStringAsFixed(1)}s',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    LinearProgressIndicator(value: progress, minHeight: 8),
+                    const SizedBox(height: 12),
+                    Card(
+                      key: ValueKey(q.id),
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Question ${currentIndex + 1}/${questions.length}',
+                                style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                            const SizedBox(height: 8),
+                            Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 16),
+                            ...q.options.map((opt) => Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: ElevatedButton(
+                                    onPressed: () => _answer(opt),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black87,
+                                      elevation: 2,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                    ),
+                                    child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
+                                  ),
+                                )),
+                          ],
                         ),
                       ),
-                    )),
-                const Spacer(),
-                Text(
-                  'Score: $score',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Score: $score', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 12),
+                    ConfettiWidget(
+                      confettiController: _confettiController,
+                      blastDirectionality: BlastDirectionality.explosive,
+                      shouldLoop: false,
+                      colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+                      emissionFrequency: 0.05,
+                      numberOfParticles: 15,
+                      gravity: 0.3,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
