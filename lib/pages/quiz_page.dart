@@ -2,8 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
-import '../theme.dart';
+import 'home_page.dart';
 import '../animated_background.dart';
+import '../theme.dart';
 
 class QuizPage extends StatefulWidget {
   final String level;
@@ -13,19 +14,20 @@ class QuizPage extends StatefulWidget {
   State<QuizPage> createState() => _QuizPageState();
 }
 
-class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin {
+class _QuizPageState extends State<QuizPage> {
   final QuizService quizService = QuizService();
   final AuthService auth = AuthService();
 
   List<Question> questions = [];
-  int currentQuestion = 0;
+  int currentIndex = 0;
   int score = 0;
 
-  double health = 1.0; // Health bar 1.0 = full
-  late Timer _tickTimer;
-  late Stopwatch _stopwatch;
+  double health = 1.0; // health bar from 1.0 to 0.0
+  late Timer healthTimer;
+  late Stopwatch stopwatch;
+
   bool loading = true;
-  bool quizFinished = false;
+  bool finished = false;
 
   @override
   void initState() {
@@ -33,172 +35,158 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     _loadQuestions();
   }
 
+  @override
+  void dispose() {
+    healthTimer.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadQuestions() async {
     setState(() => loading = true);
     questions = await quizService.fetchQuestions(widget.level, 10);
-    _stopwatch = Stopwatch()..start();
-    _tickTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    currentIndex = 0;
+    score = 0;
+    health = 1.0;
+    stopwatch = Stopwatch()..start();
+
+    // health slowly decreases over time
+    healthTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       setState(() {
-        health -= 0.0015; // adjust speed of health depletion
+        health -= 0.002; // adjust speed here
         if (health <= 0) {
           health = 0;
-          _finishDueToTimeout();
+          _finishQuiz();
         }
       });
     });
+
     setState(() => loading = false);
   }
 
-  void _answerQuestion(String answer) {
-    if (quizFinished) return;
+  void _answer(String answer) {
+    if (finished) return;
 
-    if (answer == questions[currentQuestion].answer) score++;
-    currentQuestion++;
-
-    if (currentQuestion >= questions.length) {
-      _completeQuizEarly();
+    if (answer == questions[currentIndex].answer) {
+      score++;
+      currentIndex++;
+      if (currentIndex >= questions.length) {
+        _finishQuiz();
+      }
+    } else {
+      // wrong answer ends quiz
+      _finishQuiz();
     }
   }
 
-  Future<void> _completeQuizEarly() async {
-    _tickTimer.cancel();
-    _stopwatch.stop();
-    final isPerfect = score == questions.length;
+  Future<void> _finishQuiz() async {
+    if (finished) return;
 
-    if (isPerfect) {
+    finished = true;
+    healthTimer.cancel();
+    stopwatch.stop();
+
+    // unlock next level if finished all questions correctly
+    if (score == questions.length) {
+      final levels = ['easy', 'medium', 'hard'];
+      final nextIndex = levels.indexOf(widget.level) + 1;
+      if (nextIndex < levels.length) {
+        await auth.unlockLevel(levels[nextIndex]);
+      }
+      // submit leaderboard only if all answers correct
       await quizService.submitScore(
         userId: auth.currentUser!.id,
-        score: _stopwatch.elapsedMilliseconds,
+        score: stopwatch.elapsedMilliseconds,
         level: widget.level,
       );
     }
 
-    await _unlockNextLevel();
-
     if (!mounted) return;
-    _showCompletionDialog(perfect: isPerfect);
-  }
 
-  Future<void> _finishDueToTimeout() async {
-    _tickTimer.cancel();
-    _stopwatch.stop();
-
-    await quizService.submitScore(
-      userId: auth.currentUser!.id,
-      score: _stopwatch.elapsedMilliseconds,
-      level: widget.level,
-    );
-
-    if (!mounted) return;
-    _showCompletionDialog(perfect: false);
-  }
-
-  Future<void> _unlockNextLevel() async {
-    final allLevels = ['easy', 'medium', 'hard'];
-    final nextIndex = allLevels.indexOf(widget.level) + 1;
-    if (nextIndex < allLevels.length) {
-      final nextLevel = allLevels[nextIndex];
-      final unlockedLevels = await auth.fetchUnlockedLevels();
-      if (!unlockedLevels.contains(nextLevel)) {
-        unlockedLevels.add(nextLevel);
-        await auth.unlockLevel(nextLevel);
-      }
-    }
-  }
-
-  void _showCompletionDialog({required bool perfect}) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: Text(perfect ? 'Perfect Score!' : 'Quiz Finished'),
-        content: Text('Your score: $score/${questions.length}\nTime: ${(_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2)}s'),
+        title: const Text('Quiz Finished'),
+        content: Text('Your score: $score / ${questions.length}\n'
+            'Time: ${stopwatch.elapsed.inSeconds}.${(stopwatch.elapsed.inMilliseconds % 1000) ~/ 100}s'),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                  (route) => false);
             },
             child: const Text('Back to Home'),
-          )
+          ),
         ],
       ),
     );
-    setState(() => quizFinished = true);
-  }
-
-  @override
-  void dispose() {
-    _tickTimer.cancel();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+
+    if (finished) {
+      return const SizedBox.shrink(); // dialog handles finished state
+    }
+
+    final question = questions[currentIndex];
+
     return AnimatedGradientBackground(
       child: GlobalTapRipple(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
+            title: Text(
+              '${widget.level.toUpperCase()} Quiz',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             backgroundColor: Colors.transparent,
             elevation: 0,
-            title: Text('${widget.level.toUpperCase()} Quiz'),
-            centerTitle: true,
           ),
-          body: loading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    LinearProgressIndicator(value: health),
-                    const SizedBox(height: 16),
-                    if (!quizFinished && currentQuestion < questions.length) ...[
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          questions[currentQuestion].text,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ...questions[currentQuestion].options.map(
-                        (opt) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          child: ElevatedButton(
-                            onPressed: () => _answerQuestion(opt),
-                            child: Text(opt),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                LinearProgressIndicator(
+                  value: health,
+                  minHeight: 12,
+                  backgroundColor: Colors.red.shade100,
+                  valueColor: AlwaysStoppedAnimation(Colors.green),
                 ),
+                const SizedBox(height: 20),
+                Text(
+                  'Question ${currentIndex + 1} of ${questions.length}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  question.text,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 20),
+                ...question.options.map((opt) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: ElevatedButton(
+                        onPressed: () => _answer(opt),
+                        child: Text(opt),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                        ),
+                      ),
+                    )),
+                const Spacer(),
+                Text(
+                  'Score: $score',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-    );
-  }
-}
-
-class Question {
-  final String id;
-  final String text;
-  final List<String> options;
-  final String answer;
-  final String difficulty;
-
-  Question({
-    required this.id,
-    required this.text,
-    required this.options,
-    required this.answer,
-    required this.difficulty,
-  });
-
-  factory Question.fromMap(Map<String, dynamic> map) {
-    return Question(
-      id: map['id'],
-      text: map['text'],
-      options: List<String>.from(map['options']),
-      answer: map['answer'],
-      difficulty: map['difficulty'],
     );
   }
 }
