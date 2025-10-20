@@ -1,3 +1,4 @@
+// lib/services/quiz_service.dart
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -19,11 +20,11 @@ class Question {
 
   factory Question.fromMap(Map<String, dynamic> map) {
     return Question(
-      id: map['id'],
-      text: map['text'],
-      options: List<String>.from(map['options']),
-      answer: map['answer'],
-      difficulty: map['difficulty'],
+      id: map['id'] as String,
+      text: map['text'] as String,
+      options: List<String>.from(map['options'] as List<dynamic>),
+      answer: map['answer'] as String,
+      difficulty: map['difficulty'] as String,
     );
   }
 }
@@ -38,7 +39,7 @@ class QuizService {
         .select()
         .eq('difficulty', difficulty)
         .limit(limit);
-    final List<Question> questions = res.map((q) => Question.fromMap(q)).toList();
+    final List<Question> questions = res.map((q) => Question.fromMap(Map<String, dynamic>.from(q as Map))).toList();
     questions.shuffle(Random());
     return questions;
   }
@@ -48,14 +49,13 @@ class QuizService {
     required String userId,
     required int score,
     required String level,
-    int? time, // time in seconds for perfect score
   }) async {
+    // Keep original behavior for score tracking (non-perfect runs included).
     final existing = await supabase
         .from('leaderboard')
-        .select('score, time')
+        .select('score, time_ms')
         .eq('user_id', userId)
         .eq('level', level)
-        .single()
         .maybeSingle();
 
     if (existing == null) {
@@ -63,18 +63,16 @@ class QuizService {
         'user_id': userId,
         'score': score,
         'level': level,
-        'time': time ?? 0,
         'created_at': DateTime.now().toIso8601String(),
+        // time_ms remains null for non-perfect or not-yet-recorded perfect
       });
     } else {
-      final currentScore = existing['score'] as int;
-      final currentTime = existing['time'] as int? ?? 0;
-      if (score > currentScore || (score == currentScore && time != null && time < currentTime)) {
+      final currentScore = existing['score'] as int? ?? 0;
+      if (score > currentScore) {
         await supabase
             .from('leaderboard')
             .update({
               'score': score,
-              'time': time ?? currentTime,
               'created_at': DateTime.now().toIso8601String(),
             })
             .eq('user_id', userId)
@@ -83,24 +81,75 @@ class QuizService {
     }
   }
 
-  // ---------------- Fetch Fastest Perfect Leaderboard ----------------
-  Future<List<Map<String, dynamic>>> fetchLeaderboardFastest({
+  // ---------------- Submit Perfect Time (fastest perfect run) ----------------
+  /// Only call this when the run was perfect (score == totalQuestions).
+  /// timeMs is elapsed time in milliseconds.
+  Future<void> submitPerfectTime({
+    required String userId,
+    required int timeMs,
+    required String level,
+    required int score, // pass totalQuestions to keep score consistent
+  }) async {
+    // Try to get an existing record for this user+level
+    final existing = await supabase
+        .from('leaderboard')
+        .select('time_ms, score')
+        .eq('user_id', userId)
+        .eq('level', level)
+        .maybeSingle();
+
+    if (existing == null) {
+      // Insert new record with time_ms
+      await supabase.from('leaderboard').insert({
+        'user_id': userId,
+        'score': score,
+        'level': level,
+        'time_ms': timeMs,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } else {
+      final currentTime = existing['time_ms'] as int?;
+      final currentScore = existing['score'] as int? ?? 0;
+
+      // Update the time if none set OR new time is faster
+      if (currentTime == null || timeMs < currentTime) {
+        await supabase
+            .from('leaderboard')
+            .update({
+              'time_ms': timeMs,
+              'score': score,
+              'created_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId)
+            .eq('level', level);
+      } else if (score > currentScore) {
+        // If somehow score improved (rare for perfect runs), update score but keep time.
+        await supabase
+            .from('leaderboard')
+            .update({
+              'score': score,
+              'created_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId)
+            .eq('level', level);
+      }
+    }
+  }
+
+  // ---------------- Fetch Leaderboard ----------------
+  /// Returns leaderboard entries for a level ordered by fastest perfect time (time_ms ASC).
+  /// Only returns rows that have time_ms (i.e., perfect runs recorded).
+  Future<List<Map<String, dynamic>>> fetchLeaderboard({
     required String level,
     int limit = 10,
   }) async {
-    // Count total questions for level
-    final totalQuestions = await supabase
-        .from('questions')
-        .select('id', const FetchOptions(count: CountOption.exact))
-        .eq('difficulty', level)
-        .then((res) => res is List ? res.length : 0);
-
+    // We select time_ms and user's username. Order by time_ms ascending (fastest first).
     final List res = await supabase
         .from('leaderboard')
-        .select('time, users(username)')
+        .select('time_ms, score, users(username)')
         .eq('level', level)
-        .eq('score', totalQuestions) // perfect scores only
-        .order('time', ascending: true)
+        .not('time_ms', 'is', null)
+        .order('time_ms', ascending: true)
         .limit(limit);
 
     return List<Map<String, dynamic>>.from(res);
