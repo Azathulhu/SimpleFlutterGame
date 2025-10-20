@@ -25,26 +25,13 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   Future<void> _loadLeaderboard() async {
     setState(() => loading = true);
-    final res = await quizService.fetchLeaderboard(level: selectedLevel, limit: 20);
+    // Fetch leaderboard for the selected level
+    final res = await quizService.fetchLeaderboardFastest(level: selectedLevel, limit: 20);
     setState(() {
       leaderboard = res;
       loading = false;
     });
   }
-
-  Future<List<Map<String, dynamic>>> fetchLeaderboard({
-  required String level,
-  int limit = 10,
-}) async {
-  final List res = await supabase
-      .from('leaderboard')
-      .select('score, fastest_time, users(username)')
-      .eq('level', level)
-      .eq('score', 5) // only all correct answers
-      .order('fastest_time', ascending: true)
-      .limit(limit);
-  return List<Map<String, dynamic>>.from(res);
-}
 
   Widget levelButton(String level) {
     final isSelected = selectedLevel == level;
@@ -83,7 +70,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           Text('#${rank + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(width: 16),
           Expanded(child: Text(entry['users']['username'] ?? 'Unknown', style: const TextStyle(fontSize: 16))),
-          Text('${entry['score']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('${entry['time']}s', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -114,10 +101,12 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     loading
                         ? const Center(child: CircularProgressIndicator())
                         : Expanded(
-                            child: ListView.builder(
-                              itemCount: leaderboard.length,
-                              itemBuilder: (_, index) => leaderboardEntry(leaderboard[index], index),
-                            ),
+                            child: leaderboard.isEmpty
+                                ? const Center(child: Text('No perfect runs yet!', style: TextStyle(fontSize: 16)))
+                                : ListView.builder(
+                                    itemCount: leaderboard.length,
+                                    itemBuilder: (_, index) => leaderboardEntry(leaderboard[index], index),
+                                  ),
                           ),
                   ],
                 ),
