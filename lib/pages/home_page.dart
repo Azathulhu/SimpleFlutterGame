@@ -30,12 +30,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool leaderboardLoading = true;
   String username = 'Guest';
 
+  late AnimationController _buttonAnimationController;
+  late Animation<double> _buttonScaleAnimation;
+
   @override
   void initState() {
     super.initState();
     confettiController =
         ConfettiController(duration: const Duration(seconds: 1));
     tabController = TabController(length: 2, vsync: this);
+
+    _buttonAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+
+    _buttonScaleAnimation =
+        Tween<double>(begin: 1.0, end: 1.05).animate(CurvedAnimation(
+      parent: _buttonAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
     _loadUsername();
     _loadUnlocked();
     _loadLeaderboard();
@@ -45,6 +60,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   void dispose() {
     confettiController.dispose();
     tabController.dispose();
+    _buttonAnimationController.dispose();
     super.dispose();
   }
 
@@ -75,8 +91,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Future<void> _loadLeaderboard() async {
     setState(() => leaderboardLoading = true);
-    final res = await quizService.fetchLeaderboard(
-        level: selectedLevel, limit: 20);
+    final res =
+        await quizService.fetchLeaderboard(level: selectedLevel, limit: 20);
     setState(() {
       leaderboard = res;
       leaderboardLoading = false;
@@ -85,64 +101,71 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Widget levelCard(String level, bool enabled) {
     final isSelected = selectedLevel == level;
-    return GestureDetector(
-      onTap: enabled
-          ? () {
-              setState(() => selectedLevel = level);
-              _loadLeaderboard();
-            }
-          : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: enabled
-              ? isSelected
-                  ? LinearGradient(
-                      colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.85)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 200),
+      scale: isSelected ? 1.05 : 1.0,
+      child: GestureDetector(
+        onTap: enabled
+            ? () {
+                setState(() => selectedLevel = level);
+                _loadLeaderboard();
+              }
+            : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: enabled
+                ? isSelected
+                    ? LinearGradient(
+                        colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.85)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [Colors.white, Colors.white70],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                : LinearGradient(colors: [Colors.grey.shade200, Colors.grey.shade300]),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
                     )
-                  : LinearGradient(
-                      colors: [Colors.white, Colors.white70],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-              : LinearGradient(colors: [Colors.grey.shade200, Colors.grey.shade300]),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: enabled
-              ? [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  )
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              level.toUpperCase(),
-              style: TextStyle(
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                level.toUpperCase(),
+                style: TextStyle(
                   color: enabled
                       ? (isSelected ? Colors.white : Colors.black87)
                       : Colors.grey,
                   fontWeight: FontWeight.bold,
-                  fontSize: 18),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              enabled ? 'Unlocked' : 'Locked',
-              style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 20,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                enabled ? 'Unlocked' : 'Locked',
+                style: TextStyle(
+                  fontSize: 14,
                   color: enabled
                       ? (isSelected ? Colors.white70 : Colors.black54)
-                      : Colors.grey),
-            ),
-          ],
+                      : Colors.grey,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -157,11 +180,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               const SizedBox(height: 16),
               const Text(
                 'Select a Level',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               SizedBox(
-                height: 120,
+                height: 140,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: levels.length,
@@ -171,30 +194,33 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   },
                 ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: unlocked.contains(selectedLevel)
-                    ? () async {
-                        confettiController.play();
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => QuizPage(level: selectedLevel),
-                          ),
-                        );
-                        await _loadUnlocked();
-                        await _loadLeaderboard();
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  backgroundColor: AppTheme.primary,
-                  textStyle: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+              const SizedBox(height: 32),
+              ScaleTransition(
+                scale: _buttonScaleAnimation,
+                child: ElevatedButton(
+                  onPressed: unlocked.contains(selectedLevel)
+                      ? () async {
+                          confettiController.play();
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => QuizPage(level: selectedLevel),
+                            ),
+                          );
+                          await _loadUnlocked();
+                          await _loadLeaderboard();
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    backgroundColor: AppTheme.primary,
+                    textStyle: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  child: const Center(child: Text('Start Quiz')),
                 ),
-                child: const Center(child: Text('Start Quiz')),
               ),
             ],
           );
@@ -203,48 +229,65 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget leaderboardTab() {
     return leaderboardLoading
         ? const Center(child: CircularProgressIndicator())
-        : ListView.separated(
+        : ListView.builder(
             itemCount: leaderboard.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, index) {
               final entry = leaderboard[index];
               final timeMs = entry['time_ms'] as int?;
               final displayTime =
                   timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
 
-              return Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: AppTheme.primary.withOpacity(0.2),
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                            color: AppTheme.primary, fontWeight: FontWeight.bold),
-                      ),
+              return TweenAnimationBuilder(
+                duration: Duration(milliseconds: 400 + index * 100),
+                tween: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero),
+                builder: (context, Offset offset, child) {
+                  return Transform.translate(
+                    offset: Offset(0, offset.dy * 50),
+                    child: child,
+                  );
+                },
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 400),
+                  opacity: 1,
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 8,
+                            offset: const Offset(0, 3))
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        entry['users']['username'] ?? 'Unknown',
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: AppTheme.primary.withOpacity(0.2),
+                          child: Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            entry['users']['username'] ?? 'Unknown',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                        Text(
+                          displayTime,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
-                    Text(
-                      displayTime,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                  ),
                 ),
               );
             },
@@ -259,7 +302,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         appBar: AppBar(
           title: Text(
             'Hello, $username 👋',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
           ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
