@@ -30,12 +30,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   List<Map<String, dynamic>> leaderboard = [];
   bool leaderboardLoading = true;
 
+  // Username
+  String username = 'Guest';
+
   @override
   void initState() {
     super.initState();
     confettiController =
         ConfettiController(duration: const Duration(seconds: 1));
-    tabController = TabController(length: 3, vsync: this);
+    tabController = TabController(length: 2, vsync: this);
+    _loadUsername();
     _loadUnlocked();
     _loadLeaderboard();
   }
@@ -45,6 +49,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     confettiController.dispose();
     tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUsername() async {
+    final userId = auth.currentUser?.id;
+    if (userId == null) return;
+
+    final res = await auth.supabase
+        .from('users')
+        .select('username')
+        .eq('id', userId)
+        .maybeSingle();
+
+    setState(() {
+      username = res?['username'] ?? 'Guest';
+    });
   }
 
   Future<void> _loadUnlocked() async {
@@ -59,7 +78,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Future<void> _loadLeaderboard() async {
     setState(() => leaderboardLoading = true);
-    final res = await quizService.fetchLeaderboard(level: selectedLevel, limit: 20);
+    final res = await quizService.fetchLeaderboard(
+        level: selectedLevel, limit: 20);
     setState(() {
       leaderboard = res;
       leaderboardLoading = false;
@@ -72,7 +92,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       onTap: enabled
           ? () {
               setState(() => selectedLevel = level);
-              _loadLeaderboard(); // refresh leaderboard for selected level
+              _loadLeaderboard();
             }
           : null,
       child: AnimatedContainer(
@@ -150,7 +170,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       onPressed: unlocked.contains(selectedLevel)
                           ? () async {
                               confettiController.play();
-                              // navigate to QuizPage
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -159,7 +178,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                   ),
                                 ),
                               );
-                              // refresh unlocked levels and leaderboard after quiz
                               await _loadUnlocked();
                               await _loadLeaderboard();
                             }
@@ -188,6 +206,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             itemCount: leaderboard.length,
             itemBuilder: (_, index) {
               final entry = leaderboard[index];
+              final timeMs = entry['time_ms'] as int?;
+              final displayTime = timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
+
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 margin: const EdgeInsets.only(bottom: 8),
@@ -200,14 +221,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   children: [
                     Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(width: 16),
-                    Expanded(child: Text(entry['users']['username'] ?? 'Unknown', style: const TextStyle(fontSize: 16))),
-                    //Text('${entry['time_ms']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(
-                      entry['time_ms'] != null
-                          ? '${(entry['time_ms'] / 1000).toStringAsFixed(1)}s'
-                          : '--',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Text(entry['users']['username'] ?? 'Unknown',
+                          style: const TextStyle(fontSize: 16)),
                     ),
+                    Text(displayTime,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
               );
@@ -223,8 +242,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           backgroundColor: Colors.transparent,
           appBar: AppBar(
             title: Text(
-              //'Welcome, ${auth.currentUser?.email ?? 'Guest'}',
-              'Welcome, ${auth.currentUser?.email}',
+              'Welcome, $username',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
             centerTitle: true,
