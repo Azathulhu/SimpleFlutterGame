@@ -79,6 +79,40 @@ class QuizService {
     }
   }
 
+  Future<void> submitFastestTime({
+  required String userId,
+  required int score,
+  required String level,
+  required double fastestTime,
+}) async {
+  final existing = await supabase
+      .from('leaderboard')
+      .select('fastest_time')
+      .eq('user_id', userId)
+      .eq('level', level)
+      .single()
+      .maybeSingle();
+
+  if (existing == null) {
+    await supabase.from('leaderboard').insert({
+      'user_id': userId,
+      'score': score,
+      'level': level,
+      'fastest_time': fastestTime,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  } else {
+    final currentTime = existing['fastest_time'] as double?;
+    if (currentTime == null || fastestTime < currentTime) {
+      await supabase.from('leaderboard').update({
+        'score': score,
+        'fastest_time': fastestTime,
+        'created_at': DateTime.now().toIso8601String(),
+      }).eq('user_id', userId).eq('level', level);
+    }
+  }
+}
+
   // ---------------- Fetch Leaderboard ----------------
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
     required String level,
