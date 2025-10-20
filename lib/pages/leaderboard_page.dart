@@ -1,4 +1,5 @@
 // lib/pages/leaderboard_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../theme.dart';
@@ -17,16 +18,28 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   String selectedLevel = 'easy';
   bool loading = true;
   List<Map<String, dynamic>> leaderboard = [];
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _loadLeaderboard();
+    // Poll every 2 seconds for near-instant updates (reliable and simple)
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) _loadLeaderboard(silent: true);
+    });
   }
 
-  Future<void> _loadLeaderboard() async {
-    setState(() => loading = true);
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadLeaderboard({bool silent = false}) async {
+    if (!silent) setState(() => loading = true);
     final res = await quizService.fetchLeaderboard(level: selectedLevel, limit: 50);
+    if (!mounted) return;
     setState(() {
       leaderboard = res;
       loading = false;
@@ -64,8 +77,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
   Widget leaderboardEntry(Map<String, dynamic> entry, int rank) {
-    final username = (entry['users'] != null && entry['users']['username'] != null)
-        ? entry['users']['username'] as String
+    final username = (entry['users'] != null && (entry['users'] as Map)['username'] != null)
+        ? (entry['users'] as Map)['username'] as String
         : 'Unknown';
     final timeMs = entry['time_ms'] as int?;
     return Container(
@@ -115,9 +128,13 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         : Expanded(
                             child: leaderboard.isEmpty
                                 ? const Center(child: Text('No perfect runs recorded yet.'))
-                                : ListView.builder(
-                                    itemCount: leaderboard.length,
-                                    itemBuilder: (_, index) => leaderboardEntry(leaderboard[index], index),
+                                : RefreshIndicator(
+                                    onRefresh: _loadLeaderboard,
+                                    child: ListView.builder(
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      itemCount: leaderboard.length,
+                                      itemBuilder: (_, index) => leaderboardEntry(leaderboard[index], index),
+                                    ),
                                   ),
                           ),
                   ],
