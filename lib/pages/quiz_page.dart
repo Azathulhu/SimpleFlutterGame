@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
+import 'package:confetti/confetti.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
@@ -26,31 +26,44 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   bool loading = true;
   String? errorMessage;
 
-  late AnimationController _controller;
+  double health = 100; // health bar percentage
+  Timer? timer;
+  int totalTimeSeconds = 60; // total quiz time
+  int remainingTime = 60;
+
   late ConfettiController _confettiController;
 
   static const double unlockThreshold = 0.6; // 60%
 
-  // Timer & Health
-  static const int totalTime = 60; // total quiz seconds
-  double healthPercent = 1.0;
-  Timer? quizTimer;
-  late DateTime startTime;
-
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _confettiController = ConfettiController(duration: const Duration(seconds: 1));
     _load();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     _confettiController.dispose();
-    quizTimer?.cancel();
+    timer?.cancel();
     super.dispose();
+  }
+
+  void _startTimer() {
+    remainingTime = totalTimeSeconds;
+    health = 100;
+    timer?.cancel();
+    timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (remainingTime > 0 && health > 0) {
+        setState(() {
+          remainingTime--;
+          health = (remainingTime / totalTimeSeconds) * 100;
+        });
+      } else {
+        _onComplete();
+        t.cancel();
+      }
+    });
   }
 
   Future<void> _load() async {
@@ -69,54 +82,33 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     setState(() {
       questions = fetched;
       loading = false;
+      currentIndex = 0;
+      score = 0;
     });
-
-    startTime = DateTime.now();
-    healthPercent = 1.0;
     _startTimer();
-
-    _controller.forward();
-  }
-
-  void _startTimer() {
-    quizTimer?.cancel();
-    quizTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      final elapsed = DateTime.now().difference(startTime).inSeconds;
-      setState(() {
-        healthPercent = 1 - (elapsed / totalTime);
-      });
-      if (healthPercent <= 0) {
-        quizTimer?.cancel();
-        _onComplete();
-      }
-    });
   }
 
   void _answer(String selected) {
     final current = questions[currentIndex];
     final correct = current.answer == selected;
     if (correct) score++;
-    _controller.forward(from: 0);
 
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
     } else {
-      quizTimer?.cancel();
       _onComplete();
     }
   }
 
   Future<void> _onComplete() async {
-    final elapsedTime = DateTime.now().difference(startTime).inSeconds;
+    timer?.cancel();
     final user = auth.currentUser;
     if (user != null) {
-      int? timeForPerfect;
-      if (score == questions.length) timeForPerfect = elapsedTime;
-      await quizService.submitScore(
+      await quizService.submitPerfectScore(
         userId: user.id,
         score: score,
         level: widget.level,
-        time: timeForPerfect,
+        totalQuestions: questions.length,
       );
     }
 
@@ -146,7 +138,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
             Text('Score: $score / ${questions.length}'),
             const SizedBox(height: 8),
             Text('Percent: ${(100 * (questions.isEmpty ? 0 : score / questions.length)).toStringAsFixed(0)}%'),
-            Text('Time: ${elapsedTime}s'),
             if (unlockedNext)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -157,18 +148,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // close dialog
+              Navigator.of(context).pop(); // exit quiz to home
             },
             child: const Text('Back to Home'),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              setState(() {
-                currentIndex = 0;
-                score = 0;
-              });
               _load();
             },
             child: const Text('Retry'),
@@ -220,53 +207,52 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                   children: [
                     LinearProgressIndicator(value: progress, minHeight: 8),
                     const SizedBox(height: 12),
-                    Stack(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: 10,
-                          decoration: BoxDecoration(
-                              color: Colors.grey[300], borderRadius: BorderRadius.circular(6)),
-                        ),
-                        Container(
-                          width: MediaQuery.of(context).size.width * healthPercent,
-                          height: 10,
-                          decoration: BoxDecoration(
-                              color: Colors.red, borderRadius: BorderRadius.circular(6)),
-                        )
-                      ],
-                    ),
+                    Text('Time: $remainingTime s', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 6),
+                    LinearProgressIndicator(value: health / 100, minHeight: 8, color: Colors.red),
                     const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 350),
-                      transitionBuilder: (child, animation) => SlideTransition(
-                        position: Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(animation),
-                        child: FadeTransition(opacity: animation, child: child),
-                      ),
-                      child: Card(
-                        key: ValueKey(q.id),
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Q${currentIndex + 1}: ${q.text}', style: const TextStyle(fontSize: 18)),
-                              const SizedBox(height: 12),
-                              ...q.options.map(
-                                (opt) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                    Card(
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Question ${currentIndex + 1}/${questions.length}',
+                                style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                            const SizedBox(height: 8),
+                            Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 16),
+                            ...q.options.map((opt) => Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
                                   child: ElevatedButton(
                                     onPressed: () => _answer(opt),
-                                    child: Text(opt),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black87,
+                                      elevation: 2,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                    ),
+                                    child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
+                                )),
+                          ],
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Score: $score', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 12),
+                    ConfettiWidget(
+                      confettiController: _confettiController,
+                      blastDirectionality: BlastDirectionality.explosive,
+                      shouldLoop: false,
+                      colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+                      emissionFrequency: 0.05,
+                      numberOfParticles: 15,
+                      gravity: 0.3,
                     ),
                   ],
                 ),
