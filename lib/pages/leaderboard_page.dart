@@ -37,7 +37,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   Widget _buildLeaderboardList() {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (leaderboard.isEmpty) return const Center(child: Text('No records yet.'));
+    if (leaderboard.isEmpty) return const Center(child: Text('No perfect runs yet.'));
 
     return ListView.builder(
       shrinkWrap: true,
@@ -46,12 +46,12 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         final entry = leaderboard[index];
         final username = entry['users']?['username'] ?? 'Unknown';
         final timeMs = entry['time_ms'] as int?;
-        final score = entry['score'] as int? ?? 0;
 
         return ListTile(
           leading: Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
           title: Text(username, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text('Score: $score | Time: ${timeMs != null ? (timeMs / 1000).toStringAsFixed(2) + 's' : '--'}'),
+          trailing: Text(timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         );
       },
     );
