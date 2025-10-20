@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
+import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
@@ -29,12 +29,13 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   late AnimationController _controller;
   late ConfettiController _confettiController;
 
-  Timer? _timer;
-  double health = 1.0; // 100%
-  static const int totalTimeSeconds = 60; // total quiz duration
-  int elapsedSeconds = 0;
-
   static const double unlockThreshold = 0.6; // 60%
+
+  // Timer & Health
+  static const int totalTime = 60; // total quiz seconds
+  double healthPercent = 1.0;
+  Timer? quizTimer;
+  late DateTime startTime;
 
   @override
   void initState() {
@@ -48,8 +49,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   void dispose() {
     _controller.dispose();
     _confettiController.dispose();
-    _timer?.cancel();
-    _controller.dispose();
+    quizTimer?.cancel();
     super.dispose();
   }
 
@@ -57,10 +57,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     setState(() {
       loading = true;
       errorMessage = null;
-      currentIndex = 0;
-      score = 0;
-      health = 1.0;
-      elapsedSeconds = 0;
     });
     final fetched = await quizService.fetchQuestions(widget.level, 5);
     if (fetched.isEmpty) {
@@ -74,65 +70,74 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       questions = fetched;
       loading = false;
     });
-    _controller.forward();
 
+    startTime = DateTime.now();
+    healthPercent = 1.0;
     _startTimer();
+
+    _controller.forward();
   }
 
   void _startTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    quizTimer?.cancel();
+    quizTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      final elapsed = DateTime.now().difference(startTime).inSeconds;
       setState(() {
-        elapsedSeconds++;
-        health = (totalTimeSeconds - elapsedSeconds) / totalTimeSeconds;
-        if (health <= 0) {
-          _timer?.cancel();
-          _onComplete();
-        }
+        healthPercent = 1 - (elapsed / totalTime);
       });
+      if (healthPercent <= 0) {
+        quizTimer?.cancel();
+        _onComplete();
+      }
     });
   }
 
   void _answer(String selected) {
     final current = questions[currentIndex];
     final correct = current.answer == selected;
-    if (!correct) {
-      // Any wrong answer ends the quiz
-      _timer?.cancel();
-      _onComplete();
-      return;
-    }
-    score++;
+    if (correct) score++;
     _controller.forward(from: 0);
 
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
     } else {
-      _timer?.cancel();
+      quizTimer?.cancel();
       _onComplete();
     }
   }
 
   Future<void> _onComplete() async {
+    final elapsedTime = DateTime.now().difference(startTime).inSeconds;
     final user = auth.currentUser;
-    final allCorrect = score == questions.length;
-    final completionTime = elapsedSeconds.toDouble();
-
-    if (user != null && allCorrect) {
-      // Only submit if all answers correct
-      await quizService.submitFastestTime(
+    if (user != null) {
+      int? timeForPerfect;
+      if (score == questions.length) timeForPerfect = elapsedTime;
+      await quizService.submitScore(
         userId: user.id,
         score: score,
         level: widget.level,
-        fastestTime: completionTime,
+        time: timeForPerfect,
       );
     }
 
-    if (!mounted) return;
+    final percent = questions.isNotEmpty ? score / questions.length : 0;
+    final unlockedNext = (widget.level == 'easy' && percent >= unlockThreshold) ||
+        (widget.level == 'medium' && percent >= unlockThreshold);
 
+    String? next;
+    if (unlockedNext) {
+      if (widget.level == 'easy') next = 'medium';
+      if (widget.level == 'medium') next = 'hard';
+      if (next != null) {
+        await auth.unlockLevel(next);
+        if (widget.onLevelUnlocked != null) widget.onLevelUnlocked!(next);
+        _confettiController.play();
+      }
+    }
+
+    if (!mounted) return;
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: const Text('Quiz Completed'),
         content: Column(
@@ -140,11 +145,13 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           children: [
             Text('Score: $score / ${questions.length}'),
             const SizedBox(height: 8),
-            Text('Time: ${elapsedSeconds}s'),
-            if (!allCorrect) const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('You got some answers wrong. No leaderboard record.'),
-            ),
+            Text('Percent: ${(100 * (questions.isEmpty ? 0 : score / questions.length)).toStringAsFixed(0)}%'),
+            Text('Time: ${elapsedTime}s'),
+            if (unlockedNext)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Congrats — you unlocked the next level!', style: TextStyle(color: AppTheme.primary)),
+              ),
           ],
         ),
         actions: [
@@ -158,6 +165,10 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
+              setState(() {
+                currentIndex = 0;
+                score = 0;
+              });
               _load();
             },
             child: const Text('Retry'),
@@ -189,7 +200,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     }
 
     final q = questions[currentIndex];
-    final progress = (currentIndex) / questions.length;
+    final progress = currentIndex / questions.length;
 
     return AnimatedGradientBackground(
       child: GlobalTapRipple(
@@ -208,57 +219,54 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                 child: Column(
                   children: [
                     LinearProgressIndicator(value: progress, minHeight: 8),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: health,
-                      minHeight: 12,
-                      color: Colors.redAccent,
-                      backgroundColor: Colors.red.shade100,
+                    const SizedBox(height: 12),
+                    Stack(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: 10,
+                          decoration: BoxDecoration(
+                              color: Colors.grey[300], borderRadius: BorderRadius.circular(6)),
+                        ),
+                        Container(
+                          width: MediaQuery.of(context).size.width * healthPercent,
+                          height: 10,
+                          decoration: BoxDecoration(
+                              color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                        )
+                      ],
                     ),
                     const SizedBox(height: 12),
-                    Card(
-                      key: ValueKey(q.id),
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Question ${currentIndex + 1}/${questions.length}',
-                                style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                            const SizedBox(height: 8),
-                            Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 16),
-                            ...q.options.map((opt) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      transitionBuilder: (child, animation) => SlideTransition(
+                        position: Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(animation),
+                        child: FadeTransition(opacity: animation, child: child),
+                      ),
+                      child: Card(
+                        key: ValueKey(q.id),
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Q${currentIndex + 1}: ${q.text}', style: const TextStyle(fontSize: 18)),
+                              const SizedBox(height: 12),
+                              ...q.options.map(
+                                (opt) => Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
                                   child: ElevatedButton(
                                     onPressed: () => _answer(opt),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: Colors.black87,
-                                      elevation: 2,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                    ),
-                                    child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
+                                    child: Text(opt),
                                   ),
-                                )),
-                          ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Score: $score', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 12),
-                    ConfettiWidget(
-                      confettiController: _confettiController,
-                      blastDirectionality: BlastDirectionality.explosive,
-                      shouldLoop: false,
-                      colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
-                      emissionFrequency: 0.05,
-                      numberOfParticles: 15,
-                      gravity: 0.3,
                     ),
                   ],
                 ),
