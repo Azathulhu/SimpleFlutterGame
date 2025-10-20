@@ -90,7 +90,7 @@ class QuizService {
     required int score,
     required int timeMs,
   }) async {
-    // Fetch existing leaderboard entry for this user+level
+    // 1️⃣ Fetch existing leaderboard entry for this user+level
     final existing = await supabase
         .from('leaderboard')
         .select('score, time_ms')
@@ -99,7 +99,7 @@ class QuizService {
         .maybeSingle();
   
     if (existing == null) {
-      // No previous entry, insert new
+      // No previous entry → insert
       await supabase.from('leaderboard').insert({
         'user_id': userId,
         'level': level,
@@ -111,7 +111,7 @@ class QuizService {
       final currentScore = (existing['score'] as int?) ?? 0;
       final currentTime = (existing['time_ms'] as int?) ?? 0;
   
-      // Only update if new score is higher, or same score but faster time
+      // 2️⃣ Only update if score is higher, OR same score but faster time
       if (score > currentScore || (score == currentScore && timeMs < currentTime)) {
         await supabase
             .from('leaderboard')
@@ -123,9 +123,9 @@ class QuizService {
             .eq('user_id', userId)
             .eq('level', level);
       }
+      // ✅ Otherwise do nothing (prevents overwriting)
     }
   }
-
   /*Future<void> submitPerfectTime({
     required String userId,
     required String level,
