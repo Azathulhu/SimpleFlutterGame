@@ -31,9 +31,9 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   late ConfettiController _confettiController;
 
   // Timer / Health settings
-  static const Duration defaultTimerDuration = Duration(seconds: 60); // change if needed
+  static const Duration defaultTimerDuration = Duration(seconds: 60);
   Duration timerDuration = defaultTimerDuration;
-  late Timer _tickTimer;
+  Timer? _tickTimer;
   late Stopwatch _stopwatch;
   double healthPercent = 1.0; // 1.0 = full health, 0.0 = dead
   bool quizEnded = false;
@@ -52,8 +52,10 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   void dispose() {
     _controller.dispose();
     _confettiController.dispose();
-    _tickTimer.cancel();
-    _stopwatch.stop();
+    _tickTimer?.cancel();
+    try {
+      _stopwatch.stop();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -63,7 +65,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       errorMessage = null;
       quizEnded = false;
     });
-    final fetched = await quizService.fetchQuestions(widget.level, 5);
+    final fetched = await quizService.fetchQuestions(widget.level, quizService.questionsCountForLevel(widget.level));
     if (fetched.isEmpty) {
       setState(() {
         errorMessage = 'No questions available for ${widget.level}.';
@@ -76,7 +78,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       loading = false;
       currentIndex = 0;
       score = 0;
-      // Optionally set timerDuration based on difficulty
       timerDuration = widget.level == 'easy'
           ? const Duration(seconds: 60)
           : widget.level == 'medium'
@@ -85,10 +86,8 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       healthPercent = 1.0;
     });
 
-    // start stopwatch + tick timer
     _stopwatch = Stopwatch()..start();
     _tickTimer = Timer.periodic(const Duration(milliseconds: 100), _onTick);
-
     _controller.forward();
   }
 
@@ -104,7 +103,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       healthPercent = newHealth.clamp(0.0, 1.0);
     });
 
-    // End quiz when health reaches zero or time is up
     if (remaining <= Duration.zero && !quizEnded) {
       quizEnded = true;
       _finishBecauseTimeout();
@@ -121,17 +119,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
     } else {
-      // Completed all questions before time ran out
       _onComplete();
     }
   }
 
   Future<void> _finishBecauseTimeout() async {
-    // Stop timers
-    _tickTimer.cancel();
+    _tickTimer?.cancel();
     _stopwatch.stop();
 
-    // Submit score if user exists
     final user = auth.currentUser;
     if (user != null) {
       await quizService.submitScore(userId: user.id, score: score, level: widget.level);
@@ -142,16 +137,13 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _onComplete() async {
-    // Completed all questions early
-    _tickTimer.cancel();
+    _tickTimer?.cancel();
     _stopwatch.stop();
 
     final user = auth.currentUser;
     if (user != null) {
-      // Submit score always
       await quizService.submitScore(userId: user.id, score: score, level: widget.level);
 
-      // If perfect run (no wrong answers), record perfect time
       if (score == questions.length) {
         final elapsedMs = _stopwatch.elapsedMilliseconds;
         await quizService.submitPerfectTime(
@@ -164,7 +156,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       }
     }
 
-    // determine if unlocking next level
     final percent = questions.isNotEmpty ? score / questions.length : 0;
     final unlockedNext = (widget.level == 'easy' && percent >= unlockThreshold) ||
         (widget.level == 'medium' && percent >= unlockThreshold);
@@ -185,9 +176,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   }
 
   void _showCompletionDialog({required int timeMs, bool unlockedNext = false}) {
-    // convert ms to seconds with 1 decimal for display
     final seconds = (timeMs / 1000).toStringAsFixed(2);
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -204,7 +193,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                 padding: const EdgeInsets.only(top: 8),
                 child: Text('Perfect run! Time recorded on leaderboard.', style: TextStyle(color: AppTheme.primary)),
               ),
-            if (! (score == questions.length))
+            if (!(score == questions.length))
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text('Only perfect runs are recorded in the leaderboard.'),
@@ -220,7 +209,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(); // close dialog
-              Navigator.of(context).pop(); // exit quiz to home
+              Navigator.of(context).pop(true); // exit quiz to home; return true to indicate completion
             },
             child: const Text('Back to Home'),
           ),
@@ -239,12 +228,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         ],
       ),
     );
-  }
-
-  String _formatTimeMs(int ms) {
-    final seconds = ms ~/ 1000;
-    final remainder = ms % 1000;
-    return '${seconds}s ${remainder}ms';
   }
 
   @override
@@ -287,7 +270,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    // Timer + health bar
                     Row(
                       children: [
                         Expanded(
@@ -300,7 +282,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          '${(timerDuration.inMilliseconds * healthPercent / 1000).ceil()}s',
+                          '${((timerDuration.inMilliseconds * healthPercent) / 1000).ceil()}s',
                           style: const TextStyle(fontSize: 14),
                         ),
                       ],
