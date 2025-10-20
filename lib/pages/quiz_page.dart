@@ -1,5 +1,5 @@
+// lib/pages/quiz_page.dart
 import 'dart:async';
-import 'dart:math';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
@@ -9,9 +9,7 @@ import '../animated_background.dart';
 
 class QuizPage extends StatefulWidget {
   final String level;
-  final Function(String)? onLevelUnlocked;
-
-  const QuizPage({required this.level, this.onLevelUnlocked, super.key});
+  const QuizPage({required this.level, super.key});
 
   @override
   State<QuizPage> createState() => _QuizPageState();
@@ -27,32 +25,28 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   bool loading = true;
   String? errorMessage;
 
-  late AnimationController _controller;
   late ConfettiController _confettiController;
+  late Stopwatch _stopwatch;
+  Timer? _tickTimer;
 
-  static const double unlockThreshold = 0.6; // 60%
+  double healthPercent = 1.0;
+  Duration timerDuration = const Duration(seconds: 60);
 
-  // --- Timer & Health ---
-  double health = 1.0;
-  Timer? healthTimer;
-  static const int totalTimeSeconds = 60; // total quiz time
-  late Timer countdownTimer;
-  int timeLeft = totalTimeSeconds;
+  List<Map<String, dynamic>> latestLeaderboard = [];
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _confettiController = ConfettiController(duration: const Duration(seconds: 1));
+    _stopwatch = Stopwatch();
     _load();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     _confettiController.dispose();
-    healthTimer?.cancel();
-    countdownTimer?.cancel();
+    _tickTimer?.cancel();
+    _stopwatch.stop();
     super.dispose();
   }
 
@@ -60,7 +54,12 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     setState(() {
       loading = true;
       errorMessage = null;
+      currentIndex = 0;
+      score = 0;
+      healthPercent = 1.0;
+      latestLeaderboard = [];
     });
+
     final fetched = await quizService.fetchQuestions(widget.level, 5);
     if (fetched.isEmpty) {
       setState(() {
@@ -69,86 +68,108 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       });
       return;
     }
+
+    // set timer duration per difficulty
+    timerDuration = widget.level == 'easy'
+        ? const Duration(seconds: 60)
+        : widget.level == 'medium'
+            ? const Duration(seconds: 45)
+            : const Duration(seconds: 30);
+
     setState(() {
       questions = fetched;
       loading = false;
     });
-    _controller.forward();
 
-    // Start timers
-    health = 1.0;
-    timeLeft = totalTimeSeconds;
-    healthTimer?.cancel();
-    countdownTimer?.cancel();
-    healthTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _tickTimer?.cancel();
+    _stopwatch.reset();
+    _stopwatch.start();
+
+    // update every 100ms
+    _tickTimer = Timer.periodic(const Duration(milliseconds: 100), (t) {
+      final elapsed = _stopwatch.elapsed;
+      final remaining = timerDuration - elapsed;
+      final percent = remaining.inMilliseconds / timerDuration.inMilliseconds;
       setState(() {
-        health -= 0.0016; // approx 60s to zero
-        if (health <= 0) {
-          health = 0;
-          _onComplete();
-          healthTimer?.cancel();
-        }
+        healthPercent = percent.clamp(0.0, 1.0);
       });
-    });
-    countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        timeLeft--;
-        if (timeLeft <= 0) {
-          _onComplete();
-          countdownTimer.cancel();
-        }
-      });
+
+      if (remaining <= Duration.zero) {
+        _finishDueToTimeout();
+      }
     });
   }
 
   void _answer(String selected) {
+    if (loading) return;
+    if (currentIndex >= questions.length) return;
+
     final current = questions[currentIndex];
     final correct = current.answer == selected;
     if (correct) score++;
-    _controller.forward(from: 0);
 
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
     } else {
-      _onComplete();
+      _completeQuizEarly();
     }
   }
 
-  Future<void> _onComplete() async {
-    healthTimer?.cancel();
-    countdownTimer?.cancel();
-
-    final user = auth.currentUser;
-    if (user != null) {
-      await quizService.submitScore(
-        userId: user.id,
-        score: score,
-        level: widget.level,
-      );
-    }
-
-    final totalQuestions = questions.length;
-    final percent = totalQuestions > 0 ? score / totalQuestions : 0;
-    final unlockedNext = percent >= unlockThreshold;
-
-    String? nextLevel;
-
-    // Check for perfect run
-    final recordPerfect = score == totalQuestions;
-
-    // Unlock next level ONLY on perfect run
-    if (recordPerfect) {
-      if (widget.level == 'easy') nextLevel = 'medium';
-      if (widget.level == 'medium') nextLevel = 'hard';
-
-      if (nextLevel != null) {
-        if (user != null) await auth.unlockLevel(nextLevel);
-        if (widget.onLevelUnlocked != null) widget.onLevelUnlocked!(nextLevel);
-        _confettiController.play();
-      }
-    }
-
+  Future<void> _finishDueToTimeout() async {
+    _tickTimer?.cancel();
+    _stopwatch.stop();
+    await _submitScoreAndMaybePerfect(recordPerfect: false);
     if (!mounted) return;
+    _showCompletionDialog(recordedPerfect: false);
+  }
+
+  Future<void> _completeQuizEarly() async {
+    _tickTimer?.cancel();
+    _stopwatch.stop();
+    final isPerfect = score == questions.length;
+    if (isPerfect) {
+      await _submitScoreAndMaybePerfect(recordPerfect: true);
+    } else {
+      await _submitScoreAndMaybePerfect(recordPerfect: false);
+    }
+    if (!mounted) return;
+    _showCompletionDialog(recordedPerfect: isPerfect);
+  }
+
+  Future<void> _submitScoreAndMaybePerfect({required bool recordPerfect}) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    // always submit score (keeps scoreboard score field consistent)
+    await quizService.submitScore(userId: user.id, score: score, level: widget.level);
+
+    if (recordPerfect) {
+      final elapsedMs = _stopwatch.elapsedMilliseconds;
+      await quizService.submitPerfectTime(
+        userId: user.id,
+        level: widget.level,
+        score: score,
+        timeMs: elapsedMs,
+      );
+
+      // fetch fresh leaderboard immediately so UI shows the new entry
+      latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+      _confettiController.play();
+      setState(() {});
+    } else {
+      // fetch existing leaderboard so dialog can show current top if needed
+      latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+      setState(() {});
+    }
+  }
+
+  void _showCompletionDialog({required bool recordedPerfect}) {
+    final elapsedMs = _stopwatch.elapsedMilliseconds;
+    final elapsedS = (elapsedMs / 1000).toStringAsFixed(2);
 
     showDialog(
       context: context,
@@ -158,16 +179,38 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Score: $score / $totalQuestions'),
+            Text('Score: $score / ${questions.length}'),
             const SizedBox(height: 8),
-            Text('Percent: ${(100 * (totalQuestions == 0 ? 0 : score / totalQuestions)).toStringAsFixed(0)}%'),
+            Text('Time: $elapsedS s'),
+            const SizedBox(height: 12),
+            if (recordedPerfect)
+              Text('Perfect run! Fastest time recorded if it\'s your best.', style: TextStyle(color: AppTheme.primary)),
+            if (!recordedPerfect)
+              const Text('Only perfect runs (no wrong answers) are recorded for fastest time.'),
+            const SizedBox(height: 12),
+            const Divider(),
             const SizedBox(height: 8),
-            Text('Time Left: $timeLeft s'),
-            if (recordPerfect)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('Congrats — you unlocked the next level!',
-                    style: TextStyle(color: AppTheme.primary)),
+            const Text('Top fastest perfect runs (this level):', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (latestLeaderboard.isEmpty) const Text('No perfect runs recorded yet.'),
+            if (latestLeaderboard.isNotEmpty)
+              SizedBox(
+                height: 200,
+                width: double.maxFinite,
+                child: ListView.builder(
+                  itemCount: latestLeaderboard.length,
+                  itemBuilder: (_, i) {
+                    final e = latestLeaderboard[i];
+                    final username = e['users']?['username'] ?? 'Unknown';
+                    final timeMs = e['time_ms'] as int?;
+                    final timeText = timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
+                    return ListTile(
+                      leading: Text('#${i + 1}'),
+                      title: Text(username),
+                      trailing: Text(timeText, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  },
+                ),
               ),
           ],
         ),
@@ -175,17 +218,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(); // close dialog
-              Navigator.of(context).popUntil((route) => route.isFirst); // back to home reliably
+              Navigator.of(context).pop(); // back to home
             },
             child: const Text('Back to Home'),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              setState(() {
-                currentIndex = 0;
-                score = 0;
-              });
+              // retry
               _load();
             },
             child: const Text('Retry'),
@@ -235,33 +275,43 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    LinearProgressIndicator(value: health, minHeight: 12),
+                    // Health bar (timer-driven)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: LinearProgressIndicator(
+                            value: healthPercent,
+                            minHeight: 12,
+                            backgroundColor: Colors.grey.shade300,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          // remaining seconds
+                          '${((timerDuration.inMilliseconds * healthPercent) / 1000).clamp(0, timerDuration.inMilliseconds / 1000).toStringAsFixed(1)}s',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 350),
-                      transitionBuilder: (child, animation) => SlideTransition(
-                        position: Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero)
-                            .animate(animation),
-                        child: FadeTransition(opacity: animation, child: child),
-                      ),
-                      child: Card(
-                        key: ValueKey(q.id),
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Question ${currentIndex + 1}/${questions.length}',
-                                  style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                              const SizedBox(height: 8),
-                              Text(q.text,
-                                  style: const TextStyle(
-                                      fontSize: 20, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 16),
-                              ...q.options.map(
-                                (opt) => Padding(
+                    LinearProgressIndicator(value: progress, minHeight: 8),
+                    const SizedBox(height: 12),
+                    Card(
+                      key: ValueKey(q.id),
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Question ${currentIndex + 1}/${questions.length}',
+                                style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                            const SizedBox(height: 8),
+                            Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 16),
+                            ...q.options.map((opt) => Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 6),
                                   child: ElevatedButton(
                                     onPressed: () => _answer(opt),
@@ -269,18 +319,13 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                                       backgroundColor: Colors.white,
                                       foregroundColor: Colors.black87,
                                       elevation: 2,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12)),
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 14, horizontal: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                                     ),
-                                    child: Align(
-                                        alignment: Alignment.centerLeft, child: Text(opt)),
+                                    child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
+                                )),
+                          ],
                         ),
                       ),
                     ),
@@ -291,13 +336,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                       confettiController: _confettiController,
                       blastDirectionality: BlastDirectionality.explosive,
                       shouldLoop: false,
-                      colors: const [
-                        Colors.green,
-                        Colors.blue,
-                        Colors.pink,
-                        Colors.orange,
-                        Colors.purple
-                      ],
+                      colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
                       emissionFrequency: 0.05,
                       numberOfParticles: 15,
                       gravity: 0.3,
