@@ -26,11 +26,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late ConfettiController confettiController;
   late TabController tabController;
 
-  // Leaderboard data
   List<Map<String, dynamic>> leaderboard = [];
   bool leaderboardLoading = true;
-
-  // Username
   String username = 'Guest';
 
   @override
@@ -97,20 +94,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: enabled
               ? isSelected
                   ? LinearGradient(
-                      colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)])
-                  : LinearGradient(colors: [Colors.white, Colors.white70])
+                      colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.85)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : LinearGradient(
+                      colors: [Colors.white, Colors.white70],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
               : LinearGradient(colors: [Colors.grey.shade200, Colors.grey.shade300]),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: enabled
               ? [
                   BoxShadow(
                     color: Colors.black12,
-                    blurRadius: 8,
+                    blurRadius: 12,
                     offset: const Offset(0, 6),
                   )
                 ]
@@ -122,16 +127,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             Text(
               level.toUpperCase(),
               style: TextStyle(
-                  color: enabled ? (isSelected ? Colors.white : Colors.black87) : Colors.grey,
+                  color: enabled
+                      ? (isSelected ? Colors.white : Colors.black87)
+                      : Colors.grey,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16),
+                  fontSize: 18),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               enabled ? 'Unlocked' : 'Locked',
               style: TextStyle(
-                  fontSize: 12,
-                  color: enabled ? (isSelected ? Colors.white70 : Colors.black54) : Colors.grey),
+                  fontSize: 13,
+                  color: enabled
+                      ? (isSelected ? Colors.white70 : Colors.black54)
+                      : Colors.grey),
             ),
           ],
         ),
@@ -148,52 +157,44 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               const SizedBox(height: 16),
               const Text(
                 'Select a Level',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 16),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, mainAxisSpacing: 16, crossAxisSpacing: 16, childAspectRatio: 1.3),
-                itemCount: levels.length,
-                itemBuilder: (_, index) {
-                  final lvl = levels[index];
-                  return levelCard(lvl, unlocked.contains(lvl));
-                },
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 120,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: levels.length,
+                  itemBuilder: (_, index) {
+                    final lvl = levels[index];
+                    return levelCard(lvl, unlocked.contains(lvl));
+                  },
+                ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: unlocked.contains(selectedLevel)
-                          ? () async {
-                              confettiController.play();
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => QuizPage(
-                                    level: selectedLevel,
-                                  ),
-                                ),
-                              );
-                              await _loadUnlocked();
-                              await _loadLeaderboard();
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                        backgroundColor: AppTheme.primary,
-                        textStyle: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      child: const Text('Start Quiz'),
-                    ),
-                  ),
-                ],
+              ElevatedButton(
+                onPressed: unlocked.contains(selectedLevel)
+                    ? () async {
+                        confettiController.play();
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => QuizPage(level: selectedLevel),
+                          ),
+                        );
+                        await _loadUnlocked();
+                        await _loadLeaderboard();
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: AppTheme.primary,
+                  textStyle: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                child: const Center(child: Text('Start Quiz')),
               ),
             ],
           );
@@ -202,31 +203,47 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget leaderboardTab() {
     return leaderboardLoading
         ? const Center(child: CircularProgressIndicator())
-        : ListView.builder(
+        : ListView.separated(
             itemCount: leaderboard.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, index) {
               final entry = leaderboard[index];
               final timeMs = entry['time_ms'] as int?;
-              final displayTime = timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
+              final displayTime =
+                  timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))
+                  ],
                 ),
                 child: Row(
                   children: [
-                    Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    CircleAvatar(
+                      backgroundColor: AppTheme.primary.withOpacity(0.2),
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                            color: AppTheme.primary, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: Text(entry['users']['username'] ?? 'Unknown',
-                          style: const TextStyle(fontSize: 16)),
+                      child: Text(
+                        entry['users']['username'] ?? 'Unknown',
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ),
-                    Text(displayTime,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      displayTime,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               );
@@ -237,50 +254,48 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return AnimatedGradientBackground(
-      child: GlobalTapRipple(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            title: Text(
-              'Welcome, $username',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-            ),
-            centerTitle: true,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            actions: [
-              IconButton(
-                onPressed: () async {
-                  await auth.signOut();
-                  if (!mounted) return;
-                  Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const SignInPage()),
-                      (route) => false);
-                },
-                icon: const Icon(Icons.logout),
-                tooltip: 'Sign out',
-              )
-            ],
-            bottom: TabBar(
-              controller: tabController,
-              indicatorColor: AppTheme.primary,
-              labelColor: AppTheme.primary,
-              unselectedLabelColor: Colors.grey.shade500,
-              tabs: const [
-                Tab(text: 'Play'),
-                Tab(text: 'Leaderboard'),
-              ],
-            ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: Text(
+            'Hello, $username 👋',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(20),
-            child: TabBarView(
-              controller: tabController,
-              children: [
-                playTab(),
-                leaderboardTab(),
-              ],
-            ),
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              onPressed: () async {
+                await auth.signOut();
+                if (!mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const SignInPage()),
+                    (route) => false);
+              },
+              icon: const Icon(Icons.logout),
+              tooltip: 'Sign out',
+            )
+          ],
+          bottom: TabBar(
+            controller: tabController,
+            indicatorColor: AppTheme.primary,
+            labelColor: AppTheme.primary,
+            unselectedLabelColor: Colors.grey.shade500,
+            tabs: const [
+              Tab(text: 'Play'),
+              Tab(text: 'Leaderboard'),
+            ],
+          ),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(20),
+          child: TabBarView(
+            controller: tabController,
+            children: [
+              playTab(),
+              leaderboardTab(),
+            ],
           ),
         ),
       ),
