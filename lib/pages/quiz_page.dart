@@ -129,17 +129,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
 
     final isPerfect = score == questions.length;
     await _submitScore(recordPerfect: isPerfect);
-     //Add coin reward
-    final user = auth.currentUser;
-    if (user != null) {
-      await quizService.awardCoins(
-        user.id,
-        widget.level,
-        score,
-        _stopwatch.elapsedMilliseconds,
-        questions.length,
-      );
-    }
 
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: isPerfect);
