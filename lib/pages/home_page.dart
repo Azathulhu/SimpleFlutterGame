@@ -3,6 +3,7 @@ import '../services/auth_service.dart';
 import 'quiz_page.dart';
 import '../theme.dart';
 import 'sign_in_page.dart';
+import 'shop_page.dart';
 import '../animated_background.dart';
 import '../services/quiz_service.dart';
 import 'package:confetti/confetti.dart';
