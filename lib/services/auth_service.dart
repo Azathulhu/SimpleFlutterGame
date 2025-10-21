@@ -3,7 +3,39 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  // ---------------- Sign Up ----------------
+  // existing signUp/signIn methods unchanged (omitted here for brevity)
+  // ... your existing signUp, signIn, signOut, currentUser, fetchUnlockedLevels, unlockLevel ...
+
+  // ---------------- Current User ----------------
+  User? get currentUser => supabase.auth.currentUser;
+
+  // ---------------- Role helpers ----------------
+  /// Fetch the user's role from users table. Returns null if no user or error.
+  Future<String?> fetchUserRole({String? userId}) async {
+    final uid = userId ?? currentUser?.id;
+    if (uid == null) return null;
+    final res = await supabase.from('users').select('role').eq('id', uid).maybeSingle();
+    if (res == null) return null;
+    return (res['role'] as String?) ?? 'user';
+  }
+
+  /// Set the user's role (admin, user, blocked, blocked_lb)
+  Future<void> setUserRole({required String userId, required String role}) async {
+    await supabase.from('users').update({'role': role}).eq('id', userId);
+  }
+
+  // ---------------- List all users (for admin) ----------------
+  Future<List<Map<String, dynamic>>> fetchAllUsers({int limit = 100}) async {
+    final List res = await supabase.from('users').select('id,username,created_at,role').limit(limit);
+    return List<Map<String, dynamic>>.from(res);
+  }
+}
+
+/*import 'package:supabase_flutter/supabase_flutter.dart';
+
+class AuthService {
+  final SupabaseClient supabase = Supabase.instance.client;
+
   Future<void> signUp({
     required String email,
     required String password,
@@ -14,7 +46,6 @@ class AuthService {
       final user = res.user;
       if (user == null) throw Exception('Sign up failed.');
 
-      // Insert into users, set unlocked_levels to ['easy'] by default
       await supabase.from('users').insert({
         'id': user.id,
         'email': email,
@@ -23,7 +54,6 @@ class AuthService {
         'unlocked_levels': ['easy'],
       });
 
-      // Auto sign-in
       await supabase.auth.signInWithPassword(email: email, password: password);
     } on AuthException catch (e) {
       throw Exception(e.message);
@@ -32,7 +62,6 @@ class AuthService {
     }
   }
 
-  // ---------------- Sign In ----------------
   Future<void> signIn({
     required String email,
     required String password,
@@ -47,13 +76,10 @@ class AuthService {
     }
   }
 
-  // ---------------- Sign Out ----------------
   Future<void> signOut() async => supabase.auth.signOut();
 
-  // ---------------- Current User ----------------
   User? get currentUser => supabase.auth.currentUser;
 
-  // ---------------- Unlocked Levels ----------------
   Future<List<String>> fetchUnlockedLevels() async {
     final user = currentUser;
     if (user == null) return ['easy'];
@@ -63,7 +89,6 @@ class AuthService {
     return levels ?? ['easy'];
   }
 
-  // ---------------- Unlock Level ----------------
   Future<void> unlockLevel(String level) async {
     final user = currentUser;
     if (user == null) return;
@@ -73,4 +98,4 @@ class AuthService {
       await supabase.from('users').update({'unlocked_levels': current}).eq('id', user.id);
     }
   }
-}
+}*/
