@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/shop_service.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
-import '../animated_background.dart';
 
 class ShopPage extends StatefulWidget {
   const ShopPage({super.key});
-
   @override
   State<ShopPage> createState() => _ShopPageState();
 }
 
 class _ShopPageState extends State<ShopPage> {
-  final SupabaseClient supabase = Supabase.instance.client;
+  final ShopService shop = ShopService();
   final AuthService auth = AuthService();
 
   List<Map<String, dynamic>> items = [];
-  Set<String> purchasedItemIds = {};
-  String? selectedItemId;
+  List<String> ownedItemIds = [];
+  String? activeBackground;
   int coins = 0;
   bool loading = true;
 
@@ -29,123 +27,94 @@ class _ShopPageState extends State<ShopPage> {
 
   Future<void> _loadShop() async {
     setState(() => loading = true);
-
     final user = auth.currentUser;
     if (user == null) return;
 
-    // Fetch coins
-    final userRes = await supabase.from('users').select('coins').eq('id', user.id).single();
-    coins = userRes['coins'] as int? ?? 0;
+    final shopItems = await shop.fetchShopItems();
+    final userItems = await shop.fetchUserItems(user.id);
 
-    // Fetch shop items
-    final res = await supabase.from('shop_items').select().order('created_at', ascending: true);
-    items = List<Map<String, dynamic>>.from(res);
+    final userRes = await shop.supabase.from('users').select('coins, active_background').eq('id', user.id).single();
 
-    // Fetch purchased items
-    final purchased = await supabase.from('user_shop').select('item_id').eq('user_id', user.id);
-    purchasedItemIds = purchased.map<String>((e) => e['item_id'].toString()).toSet();
-
-    // Set default selected
-    selectedItemId = purchasedItemIds.isNotEmpty ? purchasedItemIds.first : null;
-
-    setState(() => loading = false);
+    setState(() {
+      items = shopItems;
+      ownedItemIds = userItems.map((e) => e['item_id'] as String).toList();
+      coins = userRes['coins'] as int? ?? 0;
+      activeBackground = userRes['active_background'] as String?;
+      loading = false;
+    });
   }
 
   Future<void> _buyItem(Map<String, dynamic> item) async {
     final user = auth.currentUser;
     if (user == null) return;
-
-    final price = item['price'] as int;
-    final itemId = item['id'] as String;
-
-    if (coins < price) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not enough coins')));
-      return;
+    try {
+      await shop.buyItem(user.id, item['id'], item['price']);
+      await _loadShop();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Purchased ${item['name']}!')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
+  }
 
-    // Deduct coins
-    await supabase.from('users').update({'coins': coins - price}).eq('id', user.id);
-
-    // Add purchase
-    await supabase.from('user_shop').insert({'user_id': user.id, 'item_id': itemId});
-
-    // Update local state
-    purchasedItemIds.add(itemId);
-    coins -= price;
-    selectedItemId = itemId;
-
-    setState(() {});
+  Future<void> _setActive(Map<String, dynamic> item) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+    await shop.setActiveBackground(user.id, item['id']);
+    setState(() => activeBackground = item['id']);
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedGradientBackground(
-      child: GlobalTapRipple(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(title: const Text('Shop'), backgroundColor: Colors.transparent, elevation: 0),
-          body: loading
-              ? const Center(child: CircularProgressIndicator())
-              : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Text('Coins: $coins', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 1,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
-                          itemCount: items.length,
-                          itemBuilder: (_, i) {
-                            final item = items[i];
-                            final itemId = item['id'] as String;
-                            final purchased = purchasedItemIds.contains(itemId);
-                            final selected = selectedItemId == itemId;
-
-                            return GestureDetector(
-                              onTap: () {
-                                if (purchased) {
-                                  setState(() {
-                                    selectedItemId = itemId;
-                                  });
-                                } else {
-                                  _buyItem(item);
-                                }
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: selected ? AppTheme.primary : Colors.transparent, width: 3),
-                                  borderRadius: BorderRadius.circular(16),
-                                  image: DecorationImage(
-                                    image: NetworkImage(item['url']),
-                                    fit: BoxFit.cover,
-                                    colorFilter: purchased
-                                        ? null
-                                        : const ColorFilter.mode(Colors.black45, BlendMode.darken),
-                                  ),
-                                ),
-                                alignment: Alignment.bottomCenter,
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  color: Colors.black38,
-                                  child: Text(
-                                    purchased ? 'Owned' : '${item['price']} coins',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+    if (loading) return const Center(child: CircularProgressIndicator());
+    return Scaffold(
+      appBar: AppBar(title: const Text('Shop')),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Text('Coins: $coins', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 12),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                ),
+                itemCount: items.length,
+                itemBuilder: (_, i) {
+                  final item = items[i];
+                  final owned = ownedItemIds.contains(item['id']);
+                  final isActive = activeBackground == item['id'];
+                  return GestureDetector(
+                    onTap: owned ? () => _setActive(item) : () => _buyItem(item),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: isActive ? AppTheme.primary : Colors.grey, width: 3),
+                        borderRadius: BorderRadius.circular(12),
+                        image: DecorationImage(
+                          image: NetworkImage(item['url']),
+                          fit: BoxFit.cover,
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                      child: owned
+                          ? isActive
+                              ? const Center(child: Icon(Icons.check_circle, color: Colors.green, size: 40))
+                              : const SizedBox.shrink()
+                          : Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                color: Colors.black.withOpacity(0.6),
+                                child: Text('${item['price']} 💰', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
