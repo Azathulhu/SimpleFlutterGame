@@ -169,8 +169,93 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
     );
   }
-
   Widget playTab() {
+    if (loading) return const Center(child: CircularProgressIndicator());
+  
+    final pageController = PageController(viewportFraction: 0.5, initialPage: levels.indexOf(selectedLevel));
+  
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(height: 40),
+        SizedBox(
+          height: 220,
+          child: PageView.builder(
+            controller: pageController,
+            itemCount: levels.length,
+            onPageChanged: (index) {
+              setState(() => selectedLevel = levels[index]);
+              _loadLeaderboard();
+            },
+            itemBuilder: (context, index) {
+              return AnimatedBuilder(
+                animation: pageController,
+                builder: (context, child) {
+                  double value = 0;
+                  if (pageController.position.haveDimensions) {
+                    value = pageController.page! - index;
+                    value = (1 - (value.abs() * 0.4)).clamp(0.0, 1.0);
+                  } else {
+                    value = index == levels.indexOf(selectedLevel) ? 1 : 0.6;
+                  }
+  
+                  double rotationY = (pageController.position.haveDimensions
+                          ? pageController.page! - index
+                          : index - levels.indexOf(selectedLevel)) *
+                      0.5; // adjust for rotation
+                  return Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001) // perspective
+                      ..rotateY(rotationY),
+                    alignment: Alignment.center,
+                    child: Opacity(
+                      opacity: value,
+                      child: Transform.scale(
+                        scale: 0.8 + (value * 0.2),
+                        child: levelCard(levels[index], unlocked.contains(levels[index])),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 40),
+        Center(
+          child: ScaleTransition(
+            scale: _buttonScaleAnimation,
+            child: ElevatedButton(
+              onPressed: unlocked.contains(selectedLevel)
+                  ? () async {
+                      confettiController.play();
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => QuizPage(level: selectedLevel),
+                        ),
+                      );
+                      await _loadUnlocked();
+                      await _loadLeaderboard();
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24)),
+                backgroundColor: AppTheme.primary,
+                textStyle: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              child: const Text('Start Quiz'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /*Widget playTab() {
     if (loading) return const Center(child: CircularProgressIndicator());
 
     return Column(
@@ -220,7 +305,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         ),
       ],
     );
-  }
+  }*/
 
   Widget leaderboardTab() {
     if (leaderboardLoading)
