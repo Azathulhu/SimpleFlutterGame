@@ -78,20 +78,20 @@ class QuizService {
     }
   }
 
-  Future<void> submitPerfectTime({
+  /// NEW: submitTime ensures `time_ms` is always recorded for perfect or fast runs
+  Future<void> submitTime({
     required String userId,
     required String level,
     required int score,
     required int timeMs,
   }) async {
-
     final existing = await supabase
         .from('leaderboard')
         .select('score, time_ms')
         .eq('user_id', userId)
         .eq('level', level)
         .maybeSingle();
-  
+
     if (existing == null) {
       await supabase.from('leaderboard').insert({
         'user_id': userId,
@@ -102,32 +102,4 @@ class QuizService {
       });
     } else {
       final currentScore = (existing['score'] as int?) ?? 0;
-      final currentTime = (existing['time_ms'] as int?) ?? 0;
-      if (score > currentScore || (score == currentScore && timeMs < currentTime)) {
-        await supabase
-            .from('leaderboard')
-            .update({
-              'score': score,
-              'time_ms': timeMs,
-              'created_at': DateTime.now().toIso8601String(),
-            })
-            .eq('user_id', userId)
-            .eq('level', level);
-      }
-    }
-  }
- 
-  Future<List<Map<String, dynamic>>> fetchLeaderboard({
-    required String level,
-    int limit = 10,
-  }) async {
-    final List res = await supabase
-        .from('leaderboard')
-        .select('time_ms, score, users(username)')
-        .eq('level', level)
-        .not('time_ms', 'is', null)
-        .order('time_ms', ascending: true)
-        .limit(limit);
-    return List<Map<String, dynamic>>.from(res);
-  }
-}
+      final currentTime =
