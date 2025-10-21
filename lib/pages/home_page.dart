@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'quiz_page.dart';
 import '../theme.dart';
-import 'package:confetti/confetti.dart';
 import 'sign_in_page.dart';
 import '../animated_background.dart';
 import '../services/quiz_service.dart';
+import 'package:confetti/confetti.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -102,8 +102,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final isSelected = selectedLevel == level;
 
     return AnimatedScale(
-      duration: const Duration(milliseconds: 200),
-      scale: isSelected ? 1.05 : 1.0,
+      duration: const Duration(milliseconds: 250),
+      scale: isSelected ? 1.1 : 1.0,
       child: GestureDetector(
         onTap: enabled
             ? () {
@@ -111,56 +111,56 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 _loadLeaderboard();
               }
             : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          padding: const EdgeInsets.all(18),
+        child: Container(
+          width: 120,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: enabled
-                ? isSelected
-                    ? LinearGradient(
-                        colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.85)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : LinearGradient(
-                        colors: [Colors.white, Colors.white70],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                : LinearGradient(colors: [Colors.grey.shade200, Colors.grey.shade300]),
+            gradient: isSelected
+                ? LinearGradient(
+                    colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.85)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : LinearGradient(
+                    colors: [Colors.grey.shade100, Colors.grey.shade200]),
             borderRadius: BorderRadius.circular(24),
-            boxShadow: enabled
+            boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    )
+                        color: AppTheme.primary.withOpacity(0.5),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6))
                   ]
                 : null,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Icon(
+                level == 'easy'
+                    ? Icons.looks_one
+                    : level == 'medium'
+                        ? Icons.looks_two
+                        : Icons.looks_3,
+                color: isSelected ? Colors.white : Colors.black54,
+                size: 32,
+              ),
+              const SizedBox(height: 8),
               Text(
                 level.toUpperCase(),
                 style: TextStyle(
-                  color: enabled
-                      ? (isSelected ? Colors.white : Colors.black87)
-                      : Colors.grey,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontSize: 20,
+                  color: isSelected ? Colors.white : Colors.black87,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 enabled ? 'Unlocked' : 'Locked',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: enabled
-                      ? (isSelected ? Colors.white70 : Colors.black54)
-                      : Colors.grey,
+                  fontSize: 12,
+                  color: isSelected ? Colors.white70 : Colors.black45,
                 ),
               ),
             ],
@@ -171,64 +171,73 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget playTab() {
-    return loading
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              const Text(
-                'Select a Level',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+    if (loading) return const Center(child: CircularProgressIndicator());
+
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: levels.length,
+            itemBuilder: (_, index) {
+              final lvl = levels[index];
+              return levelCard(lvl, unlocked.contains(lvl));
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: ScaleTransition(
+            scale: _buttonScaleAnimation,
+            child: ElevatedButton(
+              onPressed: unlocked.contains(selectedLevel)
+                  ? () async {
+                      confettiController.play();
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => QuizPage(level: selectedLevel),
+                        ),
+                      );
+                      await _loadUnlocked();
+                      await _loadLeaderboard();
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24)),
+                backgroundColor: AppTheme.primary,
+                textStyle: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 140,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: levels.length,
-                  itemBuilder: (_, index) {
-                    final lvl = levels[index];
-                    return levelCard(lvl, unlocked.contains(lvl));
-                  },
-                ),
-              ),
-              const SizedBox(height: 32),
-              ScaleTransition(
-                scale: _buttonScaleAnimation,
-                child: ElevatedButton(
-                  onPressed: unlocked.contains(selectedLevel)
-                      ? () async {
-                          confettiController.play();
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => QuizPage(level: selectedLevel),
-                            ),
-                          );
-                          await _loadUnlocked();
-                          await _loadLeaderboard();
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    backgroundColor: AppTheme.primary,
-                    textStyle: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  child: const Center(child: Text('Start Quiz')),
-                ),
-              ),
-            ],
-          );
+              child: const Text('Start Quiz'),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget leaderboardTab() {
-    return leaderboardLoading
-        ? const Center(child: CircularProgressIndicator())
-        : ListView.builder(
+    if (leaderboardLoading)
+      return const Center(child: CircularProgressIndicator());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Text(
+          'Leaderboard — ${selectedLevel.toUpperCase()}',
+          style: const TextStyle(
+              fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: ListView.builder(
             itemCount: leaderboard.length,
             itemBuilder: (_, index) {
               final entry = leaderboard[index];
@@ -236,61 +245,62 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               final displayTime =
                   timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
 
-              return TweenAnimationBuilder(
-                duration: Duration(milliseconds: 400 + index * 100),
-                tween: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero),
-                builder: (context, Offset offset, child) {
-                  return Transform.translate(
-                    offset: Offset(0, offset.dy * 50),
-                    child: child,
-                  );
-                },
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 400),
-                  opacity: 1,
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 8,
-                            offset: const Offset(0, 3))
-                      ],
+              Color bgColor;
+              switch (index) {
+                case 0:
+                  bgColor = Colors.amber.shade300;
+                  break;
+                case 1:
+                  bgColor = Colors.grey.shade300;
+                  break;
+                case 2:
+                  bgColor = Colors.brown.shade300;
+                  break;
+                default:
+                  bgColor = Colors.white;
+              }
+
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black12, blurRadius: 8, offset: const Offset(0, 3))
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: AppTheme.primary.withOpacity(0.2),
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                            color: AppTheme.primary, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: AppTheme.primary.withOpacity(0.2),
-                          child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                                color: AppTheme.primary,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            entry['users']['username'] ?? 'Unknown',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                        Text(
-                          displayTime,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        entry['users']['username'] ?? 'Unknown',
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ),
-                  ),
+                    Text(
+                      displayTime,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
               );
             },
-          );
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -299,13 +309,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           title: Text(
             'Hello, $username 👋',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
           ),
           centerTitle: true,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
           actions: [
             IconButton(
               onPressed: () async {
@@ -331,7 +341,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         ),
         body: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: TabBarView(
             controller: tabController,
             children: [
