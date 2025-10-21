@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/material.dart';
 
 class Question {
   final String id;
@@ -31,21 +30,21 @@ class Question {
 class QuizService {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  // Fetch random questions of a difficulty
   Future<List<Question>> fetchQuestions(String difficulty, int limit) async {
     final List res = await supabase
         .from('questions')
         .select()
         .eq('difficulty', difficulty)
         .limit(limit);
+
     final List<Question> questions = res
         .map((q) => Question.fromMap(Map<String, dynamic>.from(q as Map)))
         .toList();
+
     questions.shuffle(Random());
     return questions;
   }
 
-  // Submit a score (without time)
   Future<void> submitScore({
     required String userId,
     required int score,
@@ -53,7 +52,7 @@ class QuizService {
   }) async {
     final existing = await supabase
         .from('leaderboard')
-        .select('score')
+        .select('score, time_ms')
         .eq('user_id', userId)
         .eq('level', level)
         .maybeSingle();
@@ -80,8 +79,8 @@ class QuizService {
     }
   }
 
-  // Submit score + time for perfect runs
-  Future<void> submitTime({
+  /// This is the **perfect-time submission method** used by QuizPage.
+  Future<void> submitPerfectTime({
     required String userId,
     required String level,
     required int score,
@@ -106,8 +105,8 @@ class QuizService {
       final currentScore = (existing['score'] as int?) ?? 0;
       final currentTime = (existing['time_ms'] as int?) ?? 0;
 
-      // Only update if higher score OR same score but faster time
-      if (score > currentScore || (score == currentScore && (currentTime == 0 || timeMs < currentTime))) {
+      // Only overwrite if new score higher, OR same score but faster time
+      if (score > currentScore || (score == currentScore && timeMs < currentTime)) {
         await supabase
             .from('leaderboard')
             .update({
@@ -121,7 +120,6 @@ class QuizService {
     }
   }
 
-  // Fetch leaderboard for a level (fastest times first)
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
     required String level,
     int limit = 10,
@@ -133,6 +131,7 @@ class QuizService {
         .not('time_ms', 'is', null)
         .order('time_ms', ascending: true)
         .limit(limit);
+
     return List<Map<String, dynamic>>.from(res);
   }
 }
