@@ -69,7 +69,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       });
       return;
     }
-    
+
     timerDuration = widget.level == 'easy'
         ? const Duration(seconds: 60)
         : widget.level == 'medium'
@@ -118,20 +118,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   Future<void> _finishDueToTimeout() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
-    final elapsedMs = _stopwatch.elapsedMilliseconds;
-
-    final user = auth.currentUser;
-    if (user != null) {
-      await quizService.submitTime(
-        userId: user.id,
-        level: widget.level,
-        score: score,
-        timeMs: elapsedMs,
-      );
-    }
-
-    latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
-
+    await _submitScore(recordPerfect: false);
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: false);
   }
@@ -139,33 +126,47 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   Future<void> _completeQuizEarly() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
-    final elapsedMs = _stopwatch.elapsedMilliseconds;
+
     final isPerfect = score == questions.length;
-
-    final user = auth.currentUser;
-    if (user != null) {
-      await quizService.submitTime(
-        userId: user.id,
-        level: widget.level,
-        score: score,
-        timeMs: elapsedMs,
-      );
-
-      if (isPerfect) {
-        // Unlock next level
-        final currentIndex = levelOrder.indexOf(widget.level);
-        if (currentIndex != -1 && currentIndex < levelOrder.length - 1) {
-          final nextLevel = levelOrder[currentIndex + 1];
-          await auth.unlockLevel(nextLevel);
-        }
-        await auth.unlockLevel(widget.level);
-      }
-    }
-
-    latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+    await _submitScore(recordPerfect: isPerfect);
 
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: isPerfect);
+  }
+
+  Future<void> _submitScore({required bool recordPerfect}) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    if (recordPerfect) {
+      // Perfect run: submit score and time
+      await quizService.submitPerfectTime(
+        userId: user.id,
+        level: widget.level,
+        score: score,
+        timeMs: _stopwatch.elapsedMilliseconds,
+      );
+
+      // Unlock current and next level only if perfect
+      await auth.unlockLevel(widget.level);
+      final currentIndex = levelOrder.indexOf(widget.level);
+      if (currentIndex < levelOrder.length - 1) {
+        final nextLevel = levelOrder[currentIndex + 1];
+        await auth.unlockLevel(nextLevel);
+      }
+
+      _confettiController.play();
+    } else {
+      // Only submit score if not perfect (time ignored)
+      await quizService.submitScore(
+        userId: user.id,
+        level: widget.level,
+        score: score,
+      );
+    }
+
+    latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+    setState(() {});
   }
 
   void _showCompletionDialog({required bool recordedPerfect}) {
