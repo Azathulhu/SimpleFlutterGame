@@ -3,39 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  // existing signUp/signIn methods unchanged (omitted here for brevity)
-  // ... your existing signUp, signIn, signOut, currentUser, fetchUnlockedLevels, unlockLevel ...
-
-  // ---------------- Current User ----------------
-  User? get currentUser => supabase.auth.currentUser;
-
-  // ---------------- Role helpers ----------------
-  /// Fetch the user's role from users table. Returns null if no user or error.
-  Future<String?> fetchUserRole({String? userId}) async {
-    final uid = userId ?? currentUser?.id;
-    if (uid == null) return null;
-    final res = await supabase.from('users').select('role').eq('id', uid).maybeSingle();
-    if (res == null) return null;
-    return (res['role'] as String?) ?? 'user';
-  }
-
-  /// Set the user's role (admin, user, blocked, blocked_lb)
-  Future<void> setUserRole({required String userId, required String role}) async {
-    await supabase.from('users').update({'role': role}).eq('id', userId);
-  }
-
-  // ---------------- List all users (for admin) ----------------
-  Future<List<Map<String, dynamic>>> fetchAllUsers({int limit = 100}) async {
-    final List res = await supabase.from('users').select('id,username,created_at,role').limit(limit);
-    return List<Map<String, dynamic>>.from(res);
-  }
-}
-
-/*import 'package:supabase_flutter/supabase_flutter.dart';
-
-class AuthService {
-  final SupabaseClient supabase = Supabase.instance.client;
-
   Future<void> signUp({
     required String email,
     required String password,
@@ -98,4 +65,4 @@ class AuthService {
       await supabase.from('users').update({'unlocked_levels': current}).eq('id', user.id);
     }
   }
-}*/
+}
