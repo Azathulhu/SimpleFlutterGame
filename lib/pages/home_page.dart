@@ -33,6 +33,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late AnimationController _buttonAnimationController;
   late Animation<double> _buttonScaleAnimation;
 
+  int coins = 0;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +56,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _loadUsername();
     _loadUnlocked();
     _loadLeaderboard();
+    _loadCoins();
   }
 
   @override
@@ -64,6 +67,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future<void> _loadCoins() async {
+    final c = await auth.fetchCoins();
+    if (!mounted) return;
+    setState(() => coins = c);
+  }
+  
   Future<void> _loadUsername() async {
     final userId = auth.currentUser?.id;
     if (userId == null) return;
