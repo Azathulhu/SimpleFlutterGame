@@ -1,4 +1,3 @@
-// lib/pages/quiz_page.dart
 import 'dart:async';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
@@ -70,8 +69,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       });
       return;
     }
-
-    // Timer duration per difficulty
+    
     timerDuration = widget.level == 'easy'
         ? const Duration(seconds: 60)
         : widget.level == 'medium'
@@ -132,13 +130,11 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     if (isPerfect) {
       await _submitScoreAndMaybePerfect(recordPerfect: true);
 
-      // ---------------- Unlock next level ----------------
       final currentIndex = levelOrder.indexOf(widget.level);
       if (currentIndex != -1) {
-        // Unlock current level too (safety)
+
         await auth.unlockLevel(widget.level);
 
-        // Unlock next level if exists
         if (currentIndex < levelOrder.length - 1) {
           final nextLevel = levelOrder[currentIndex + 1];
           await auth.unlockLevel(nextLevel);
@@ -156,10 +152,8 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final user = auth.currentUser;
     if (user == null) return;
 
-    // Always submit score
     await quizService.submitScore(userId: user.id, score: score, level: widget.level);
 
-    // Only perfect runs get fastest time
     if (recordPerfect) {
       final elapsedMs = _stopwatch.elapsedMilliseconds;
       await quizService.submitPerfectTime(
@@ -170,7 +164,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       );
     }
 
-    // Fetch leaderboard
     latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
     if (recordPerfect) _confettiController.play();
     setState(() {});
@@ -192,9 +185,9 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
             Text('Time: $elapsedS s'),
             const SizedBox(height: 12),
             if (recordedPerfect)
-              Text('Perfect run! Fastest time recorded.', style: TextStyle(color: AppTheme.primary)),
+              Text('Congratulations!', style: TextStyle(color: AppTheme.primary)),
             if (!recordedPerfect)
-              const Text('Only perfect runs are recorded for fastest time.'),
+              const Text('NOTE: Only perfect runs are recorded for fastest time.'),
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 8),
@@ -226,7 +219,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pop(); // back to home
+              Navigator.of(context).pop();
             },
             child: const Text('Back to Home'),
           ),
