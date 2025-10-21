@@ -154,6 +154,26 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         final nextLevel = levelOrder[currentIndex + 1];
         await auth.unlockLevel(nextLevel);
       }
+      final maxTimeMs = timerDuration.inMilliseconds;
+      final timeTakenMs = _stopwatch.elapsedMilliseconds;
+  
+      // Difficulty multiplier
+      int difficultyMultiplier = widget.level == 'easy'
+          ? 1
+          : widget.level == 'medium'
+              ? 2
+              : 3;
+  
+      // Base coins
+      int baseCoins = 10;
+  
+      // Formula: faster completion = more coins
+      int coinsAwarded =
+          ((baseCoins * difficultyMultiplier) * (maxTimeMs / timeTakenMs)).round();
+  
+      // Add coins to user account
+      await auth.addCoins(coinsAwarded);
+      print('Coins awarded: $coinsAwarded'); // optional debug
 
       _confettiController.play();
     } else {
