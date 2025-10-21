@@ -1,4 +1,3 @@
-// lib/services/quiz_service.dart
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +31,6 @@ class Question {
 class QuizService {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  // ---------------- Fetch Questions ----------------
   Future<List<Question>> fetchQuestions(String difficulty, int limit) async {
     final List res = await supabase
         .from('questions')
@@ -46,7 +44,6 @@ class QuizService {
     return questions;
   }
 
-  // ---------------- Submit Score (Upsert old-style score) ----------------
   Future<void> submitScore({
     required String userId,
     required int score,
@@ -81,16 +78,13 @@ class QuizService {
     }
   }
 
-  // ---------------- Submit Perfect Time (fastest perfect run) ----------------
-  /// Only call this when the run was perfect (score == totalQuestions).
-  /// Uses upsert with onConflict to ensure one row per user+level.
   Future<void> submitPerfectTime({
     required String userId,
     required String level,
     required int score,
     required int timeMs,
   }) async {
-    // 1️⃣ Fetch existing leaderboard entry for this user+level
+
     final existing = await supabase
         .from('leaderboard')
         .select('score, time_ms')
@@ -99,7 +93,6 @@ class QuizService {
         .maybeSingle();
   
     if (existing == null) {
-      // No previous entry → insert
       await supabase.from('leaderboard').insert({
         'user_id': userId,
         'level': level,
@@ -110,8 +103,6 @@ class QuizService {
     } else {
       final currentScore = (existing['score'] as int?) ?? 0;
       final currentTime = (existing['time_ms'] as int?) ?? 0;
-  
-      // 2️⃣ Only update if score is higher, OR same score but faster time
       if (score > currentScore || (score == currentScore && timeMs < currentTime)) {
         await supabase
             .from('leaderboard')
@@ -123,26 +114,9 @@ class QuizService {
             .eq('user_id', userId)
             .eq('level', level);
       }
-      // ✅ Otherwise do nothing (prevents overwriting)
     }
   }
-  /*Future<void> submitPerfectTime({
-    required String userId,
-    required String level,
-    required int score,
-    required int timeMs,
-  }) async {
-    await supabase.from('leaderboard').upsert({
-      'user_id': userId,
-      'level': level,
-      'score': score,
-      'time_ms': timeMs,
-      'created_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'user_id,level');
-  }*/
-
-  // ---------------- Fetch Leaderboard (fastest perfect runs) ----------------
-  /// Returns only rows that have a time_ms (perfect runs), ordered ascending (fastest first).
+ 
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
     required String level,
     int limit = 10,
