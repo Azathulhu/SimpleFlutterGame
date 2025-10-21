@@ -31,6 +31,7 @@ class Question {
 class QuizService {
   final SupabaseClient supabase = Supabase.instance.client;
 
+  // Fetch random questions of a difficulty
   Future<List<Question>> fetchQuestions(String difficulty, int limit) async {
     final List res = await supabase
         .from('questions')
@@ -44,6 +45,7 @@ class QuizService {
     return questions;
   }
 
+  // Submit a score (without time)
   Future<void> submitScore({
     required String userId,
     required int score,
@@ -51,7 +53,7 @@ class QuizService {
   }) async {
     final existing = await supabase
         .from('leaderboard')
-        .select('score, time_ms')
+        .select('score')
         .eq('user_id', userId)
         .eq('level', level)
         .maybeSingle();
@@ -78,7 +80,7 @@ class QuizService {
     }
   }
 
-  /// NEW: submitTime ensures `time_ms` is always recorded for perfect or fast runs
+  // Submit score + time for perfect runs
   Future<void> submitTime({
     required String userId,
     required String level,
@@ -102,4 +104,35 @@ class QuizService {
       });
     } else {
       final currentScore = (existing['score'] as int?) ?? 0;
-      final currentTime =
+      final currentTime = (existing['time_ms'] as int?) ?? 0;
+
+      // Only update if higher score OR same score but faster time
+      if (score > currentScore || (score == currentScore && (currentTime == 0 || timeMs < currentTime))) {
+        await supabase
+            .from('leaderboard')
+            .update({
+              'score': score,
+              'time_ms': timeMs,
+              'created_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId)
+            .eq('level', level);
+      }
+    }
+  }
+
+  // Fetch leaderboard for a level (fastest times first)
+  Future<List<Map<String, dynamic>>> fetchLeaderboard({
+    required String level,
+    int limit = 10,
+  }) async {
+    final List res = await supabase
+        .from('leaderboard')
+        .select('time_ms, score, users(username)')
+        .eq('level', level)
+        .not('time_ms', 'is', null)
+        .order('time_ms', ascending: true)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(res);
+  }
+}
