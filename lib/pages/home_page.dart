@@ -410,6 +410,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             'Hello, $username 👋',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
           ),
+          Row(
+            children: [
+              const Icon(Icons.monetization_on, color: Colors.amber),
+              const SizedBox(width: 4),
+              Text('$coins', style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
           centerTitle: true,
           actions: [
             IconButton(
