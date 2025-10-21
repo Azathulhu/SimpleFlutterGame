@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'quiz_page.dart';
-import 'leaderboard_page.dart';
 import '../theme.dart';
 import 'package:confetti/confetti.dart';
 import 'sign_in_page.dart';
