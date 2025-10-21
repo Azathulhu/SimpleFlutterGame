@@ -1,7 +1,5 @@
-// lib/widgets/animated_background.dart
 import 'package:flutter/material.dart';
-//
-/// Animated soft gradient background
+
 class AnimatedGradientBackground extends StatefulWidget {
   final Widget child;
   const AnimatedGradientBackground({super.key, required this.child});
@@ -56,8 +54,6 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
     );
   }
 }
-
-/// Global tap ripple anywhere on screen
 class GlobalTapRipple extends StatelessWidget {
   final Widget child;
   const GlobalTapRipple({super.key, required this.child});
