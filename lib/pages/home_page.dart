@@ -37,7 +37,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.initState();
     confettiController =
         ConfettiController(duration: const Duration(seconds: 1));
-    tabController = TabController(length: 2, vsync: this);
+    tabController = TabController(length: 3, vsync: this);
 
     _buttonAnimationController = AnimationController(
       vsync: this,
@@ -422,6 +422,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             tabs: const [
               Tab(text: 'Play'),
               Tab(text: 'Leaderboard'),
+              Tab(text: 'Shop'),
             ],
           ),
         ),
@@ -432,6 +433,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               playTab(),
               leaderboardTab(),
+              const ShopPage(),
             ],
           ),
         ),
