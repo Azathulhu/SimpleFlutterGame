@@ -37,7 +37,6 @@ class AppTheme {
   );
 }
 
-/// A calm animated background that slowly shifts colors between blue & green
 class AnimatedBackground extends StatefulWidget {
   final Widget child;
   const AnimatedBackground({super.key, required this.child});
@@ -96,7 +95,6 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
   }
 }
 
-/// A ripple animation that appears wherever the user taps
 class RippleTouchEffect extends StatefulWidget {
   final Widget child;
   const RippleTouchEffect({super.key, required this.child});
@@ -164,8 +162,6 @@ class _RippleTouchEffectState extends State<RippleTouchEffect> {
     );
   }
 }
-
-/// Tap scale animation for buttons
 class ScaleOnTap extends StatefulWidget {
   final Widget child;
   final void Function()? onTap;
