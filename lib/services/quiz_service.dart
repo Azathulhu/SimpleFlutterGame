@@ -95,14 +95,17 @@ class QuizService {
   
     // Reward bonus for faster completion (less time)
     final bonus = ((totalQuestions / (timeMs / 1000)) * 5).round();
-  
     final coinsEarned = base + bonus;
   
+    // Fetch current coins
+    final userRes = await supabase.from('users').select('coins').eq('id', userId).single();
+    final currentCoins = userRes['coins'] as int? ?? 0;
+  
+    // Update coins manually
     await supabase.from('users').update({
-      'coins': Increment(coinsEarned),
+      'coins': currentCoins + coinsEarned,
     }).eq('id', userId);
   }
-
   /// This is the **perfect-time submission method** used by QuizPage.
   Future<void> submitPerfectTime({
     required String userId,
