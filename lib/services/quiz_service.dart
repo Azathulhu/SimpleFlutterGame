@@ -81,20 +81,30 @@ class QuizService {
   //new shit for currency
   Future<void> awardCoins(String userId, String level, int score, int timeMs, int totalQuestions) async {
     int base;
-    switch(level) {
-      case 'easy': base = 10; break;
-      case 'medium': base = 20; break;
-      case 'hard': base = 50; break;
-      default: base = 10;
+    switch (level) {
+      case 'easy':
+        base = 10;
+        break;
+      case 'medium':
+        base = 20;
+        break;
+      case 'hard':
+        base = 50;
+        break;
+      default:
+        base = 10;
     }
   
     final bonus = ((totalQuestions / (timeMs / 1000)) * 5).round();
     final coinsEarned = base + bonus;
   
-    await supabase.from('users').update({
-      'coins': SupabaseFilterBuilder.increment('coins', coinsEarned),
-    }).eq('id', userId);
+    // ✅ Correct increment usage:
+    await supabase
+        .from('users')
+        .increment('coins', coinsEarned)
+        .eq('id', userId);
   }
+
   /// This is the **perfect-time submission method** used by QuizPage.
   Future<void> submitPerfectTime({
     required String userId,
