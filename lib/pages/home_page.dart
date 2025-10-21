@@ -433,7 +433,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               playTab(),
               leaderboardTab(),
-              const ShopPage(),
+              ShopPage(),
             ],
           ),
         ),
