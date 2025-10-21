@@ -78,6 +78,24 @@ class QuizService {
       }
     }
   }
+  //new shit for currency
+  Future<void> awardCoins(String userId, String level) async {
+    int coinsEarned = 0;
+    switch(level) {
+      case 'easy':
+        coinsEarned = 10;
+        break;
+      case 'medium':
+        coinsEarned = 20;
+        break;
+      case 'hard':
+        coinsEarned = 50;
+        break;
+    }
+    await supabase.from('users').update({
+      'coins': Increment(coinsEarned),
+    }).eq('id', userId);
+  }
 
   /// This is the **perfect-time submission method** used by QuizPage.
   Future<void> submitPerfectTime({
