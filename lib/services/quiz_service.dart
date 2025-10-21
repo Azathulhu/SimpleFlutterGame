@@ -79,19 +79,25 @@ class QuizService {
     }
   }
   //new shit for currency
-  Future<void> awardCoins(String userId, String level) async {
-    int coinsEarned = 0;
+  Future<void> awardCoins(String userId, String level, int score, int timeMs, int totalQuestions) async {
+    int base = 0;
     switch(level) {
       case 'easy':
-        coinsEarned = 10;
+        base = 10;
         break;
       case 'medium':
-        coinsEarned = 20;
+        base = 20;
         break;
       case 'hard':
-        coinsEarned = 50;
+        base = 50;
         break;
     }
+  
+    // Reward bonus for faster completion (less time)
+    final bonus = ((totalQuestions / (timeMs / 1000)) * 5).round();
+  
+    final coinsEarned = base + bonus;
+  
     await supabase.from('users').update({
       'coins': Increment(coinsEarned),
     }).eq('id', userId);
