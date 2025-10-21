@@ -151,42 +151,8 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: isPerfect);
   }
+  
   Future<void> _submitScoreAndMaybePerfect({required bool recordPerfect}) async {
-      final user = auth.currentUser;
-      if (user == null) return;
-  
-      // fetch role to decide behavior
-      final roleRes = await auth.supabase.from('users').select('role').eq('id', user.id).maybeSingle();
-      final role = roleRes?['role'] as String? ?? 'user';
-  
-      if (role == 'blocked') {
-        // safety: blocked users should not be able to submit any scores
-        return;
-      }
-  
-      // Always submit score UNLESS user is blocked_lb (soft-block).
-      if (role != 'blocked_lb') {
-        await quizService.submitScore(userId: user.id, score: score, level: widget.level);
-      }
-  
-      // Only perfect runs get fastest time — but also skip if blocked_lb
-      if (recordPerfect && role != 'blocked_lb') {
-        final elapsedMs = _stopwatch.elapsedMilliseconds;
-        await quizService.submitPerfectTime(
-          userId: user.id,
-          level: widget.level,
-          score: score,
-          timeMs: elapsedMs,
-        );
-      }
-  
-      // Fetch leaderboard for UI: note the leaderboard query inherently filters rows with time_ms
-      latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
-      if (recordPerfect && role != 'blocked_lb') _confettiController.play();
-      setState(() {});
-    }
-
-  /*Future<void> _submitScoreAndMaybePerfect({required bool recordPerfect}) async {
     final user = auth.currentUser;
     if (user == null) return;
 
@@ -208,7 +174,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
     if (recordPerfect) _confettiController.play();
     setState(() {});
-  }*/
+  }
 
   void _showCompletionDialog({required bool recordedPerfect}) {
     final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
