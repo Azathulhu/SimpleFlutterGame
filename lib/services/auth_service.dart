@@ -65,4 +65,25 @@ class AuthService {
       await supabase.from('users').update({'unlocked_levels': current}).eq('id', user.id);
     }
   }
+  Future<int> fetchCoins() async {
+  final user = currentUser;
+  if (user == null) return 0;
+
+  final res = await supabase
+      .from('users')
+      .select('coins')
+      .eq('id', user.id)
+      .maybeSingle();
+
+  return res?['coins'] as int? ?? 0;
+}
+
+Future<void> addCoins(int amount) async {
+  final user = currentUser;
+  if (user == null) return;
+
+  await supabase
+      .from('users')
+      .update({'coins': SupabaseTransform.increment(amount)})
+      .eq('id', user.id);
 }
