@@ -45,11 +45,26 @@ class QuizService {
     return questions;
   }
 
+  /// Adds coins safely using RPC
+  Future<void> addCoins(String userId, int coinsEarned) async {
+    try {
+      await supabase.rpc('increment_coins', params: {
+        'user_id': userId,
+        'amount': coinsEarned,
+      });
+    } catch (e) {
+      throw Exception('Failed to add coins: $e');
+    }
+  }
+
+  /// Submits score and optionally coins for perfect or non-perfect runs
   Future<void> submitScore({
     required String userId,
     required int score,
     required String level,
+    int? timeMs, // optional for perfect runs
   }) async {
+    // Fetch existing leaderboard entry
     final existing = await supabase
         .from('leaderboard')
         .select('score, time_ms')
@@ -57,73 +72,13 @@ class QuizService {
         .eq('level', level)
         .maybeSingle();
 
+    final coinsEarned = _calculateCoins(score, level, timeMs);
+
     if (existing == null) {
       await supabase.from('leaderboard').insert({
         'user_id': userId,
         'score': score,
         'level': level,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-    } else {
-      final currentScore = (existing['score'] as int?) ?? 0;
-      if (score > currentScore) {
-        await supabase
-            .from('leaderboard')
-            .update({
-              'score': score,
-              'created_at': DateTime.now().toIso8601String(),
-            })
-            .eq('user_id', userId)
-            .eq('level', level);
-      }
-    }
-  }
-  //new shit for currency
-  Future<void> awardCoins(String userId, String level, int score, int timeMs, int totalQuestions) async {
-    int base;
-    switch (level) {
-      case 'easy':
-        base = 10;
-        break;
-      case 'medium':
-        base = 20;
-        break;
-      case 'hard':
-        base = 50;
-        break;
-      default:
-        base = 10;
-    }
-  
-    final bonus = ((totalQuestions / (timeMs / 1000)) * 5).round();
-    final coinsEarned = base + bonus;
-  
-    // ✅ Correct increment usage:
-    await supabase
-        .from('users')
-        .increment('coins', coinsEarned)
-        .eq('id', userId);
-  }
-
-  /// This is the **perfect-time submission method** used by QuizPage.
-  Future<void> submitPerfectTime({
-    required String userId,
-    required String level,
-    required int score,
-    required int timeMs,
-  }) async {
-    final existing = await supabase
-        .from('leaderboard')
-        .select('score, time_ms')
-        .eq('user_id', userId)
-        .eq('level', level)
-        .maybeSingle();
-
-    if (existing == null) {
-      await supabase.from('leaderboard').insert({
-        'user_id': userId,
-        'level': level,
-        'score': score,
         'time_ms': timeMs,
         'created_at': DateTime.now().toIso8601String(),
       });
@@ -131,8 +86,7 @@ class QuizService {
       final currentScore = (existing['score'] as int?) ?? 0;
       final currentTime = (existing['time_ms'] as int?) ?? 0;
 
-      // Only overwrite if new score higher, OR same score but faster time
-      if (score > currentScore || (score == currentScore && timeMs < currentTime)) {
+      if (score > currentScore || (score == currentScore && (timeMs ?? 0) < currentTime)) {
         await supabase
             .from('leaderboard')
             .update({
@@ -144,6 +98,26 @@ class QuizService {
             .eq('level', level);
       }
     }
+
+    // Add coins to the user
+    await addCoins(userId, coinsEarned);
+  }
+
+  /// Simple coin calculation based on level and optionally time
+  int _calculateCoins(int score, String level, int? timeMs) {
+    final base = level == 'easy'
+        ? 10
+        : level == 'medium'
+            ? 20
+            : 30;
+
+    // Bonus for speed (perfect runs)
+    if (timeMs != null) {
+      final bonus = ((10000 / (timeMs + 1))).round(); // just an example formula
+      return base + bonus;
+    }
+
+    return base * score; // regular run
   }
 
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
