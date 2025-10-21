@@ -90,7 +90,6 @@ class _SignInPageState extends State<SignInPage> {
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     onPressed: () async {
-                                      // duplicate of ScaleOnTap handler — perform same action here so the button shows enabled text
                                       setState(() {
                                         loading = true;
                                         error = null;
