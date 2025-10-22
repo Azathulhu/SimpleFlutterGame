@@ -247,6 +247,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       );
                       await _loadUnlocked();
                       await _loadLeaderboard();
+                      await _loadCoins();
                     }
                   : null,
               style: ElevatedButton.styleFrom(
