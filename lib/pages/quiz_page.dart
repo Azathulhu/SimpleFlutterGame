@@ -116,16 +116,86 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       _completeQuizEarly();
     }
   }
-
   Future<void> _finishDueToTimeout() async {
+    _tickTimer?.cancel();
+    _stopwatch.stop();
+  
+    final user = auth.currentUser;
+    if (user != null) {
+      // Only record perfect runs for fastest time
+      if (score == questions.length) {
+        await quizService.submitPerfectTime(
+          userId: user.id,
+          level: widget.level,
+          score: score,
+          timeMs: _stopwatch.elapsedMilliseconds,
+        );
+        await auth.addCoins(score); // optional coin reward
+      } else {
+        await quizService.submitScore(
+          userId: user.id,
+          level: widget.level,
+          score: score,
+        );
+      }
+  
+      latestLeaderboard = await quizService.fetchLeaderboard(
+        level: widget.level,
+        limit: 50,
+      );
+      setState(() {});
+    }
+  
+    _showCompletionDialog(recordedPerfect: score == questions.length);
+  }
+  /*Future<void> _finishDueToTimeout() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
     await _submitScore(recordPerfect: false);
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: false);
-  }
-
+  }*/
   Future<void> _completeQuizEarly() async {
+    _tickTimer?.cancel();
+    _stopwatch.stop();
+  
+    final isPerfect = score == questions.length;
+    final user = auth.currentUser;
+    if (user != null) {
+      if (isPerfect) {
+        await quizService.submitPerfectTime(
+          userId: user.id,
+          level: widget.level,
+          score: score,
+          timeMs: _stopwatch.elapsedMilliseconds,
+        );
+        await auth.addCoins(score); // give coins for perfect run
+  
+        // Unlock next level
+        await auth.unlockLevel(widget.level);
+        final levelOrder = ['easy', 'medium', 'hard'];
+        final idx = levelOrder.indexOf(widget.level);
+        if (idx < levelOrder.length - 1) {
+          await auth.unlockLevel(levelOrder[idx + 1]);
+        }
+      } else {
+        await quizService.submitScore(
+          userId: user.id,
+          level: widget.level,
+          score: score,
+        );
+      }
+  
+      latestLeaderboard = await quizService.fetchLeaderboard(
+        level: widget.level,
+        limit: 50,
+      );
+      setState(() {});
+    }
+  
+    _showCompletionDialog(recordedPerfect: isPerfect);
+  }
+  /*Future<void> _completeQuizEarly() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
 
@@ -134,7 +204,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
 
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: isPerfect);
-  }
+  }*/
   Future<void> submitPerfectTime({
     required String userId,
     required String level,
