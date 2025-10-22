@@ -258,7 +258,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 textStyle: const TextStyle(
                     fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              child: const Text('Start Quiz'),
+              child: const Text('Start'),
             ),
           ),
         ),
