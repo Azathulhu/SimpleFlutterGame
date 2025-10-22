@@ -66,26 +66,27 @@ class AuthService {
     }
   }
    /// ------------------- COINS -------------------
+  /// ------------------- COINS (users.coins column) -------------------
   Future<int> fetchCoins() async {
     final user = currentUser;
     if (user == null) return 0;
-
     final res = await supabase.from('users').select('coins').eq('id', user.id).maybeSingle();
     return (res?['coins'] as int?) ?? 0;
   }
 
+  /// Adds coins by reading current value and updating (atomic-ish read+write).
+  /// This avoids relying on any unsupported helper APIs.
   Future<void> addCoins(int amount) async {
     final user = currentUser;
     if (user == null) return;
 
-    await supabase.from('users').update({'coins': SupabaseClientIncrement(amount)}).eq('id', user.id);
+    // Fetch current coins
+    final res = await supabase.from('users').select('coins').eq('id', user.id).maybeSingle();
+    final current = (res?['coins'] as int?) ?? 0;
+    final updated = current + amount;
+
+    await supabase.from('users').update({'coins': updated}).eq('id', user.id);
   }
+
 }
 
-/// ------------------- HELPERS -------------------
-/// Use this helper class to handle increments in Supabase Flutter
-class SupabaseClientIncrement {
-  final int value;
-  SupabaseClientIncrement(this.value);
-  Map<String, dynamic> toJson() => {'increment': value};
-}
