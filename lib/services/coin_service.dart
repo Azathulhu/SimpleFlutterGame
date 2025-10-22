@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 class CoinService {
   final SupabaseClient supabase = Supabase.instance.client;
 
+  
   Future<int> getCoins(String userId) async {
     final res = await supabase.from('user_coins').select('coins').eq('user_id', userId).maybeSingle();
     if (res == null) return 0;
