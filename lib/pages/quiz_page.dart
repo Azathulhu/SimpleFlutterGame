@@ -135,7 +135,54 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     if (!mounted) return;
     _showCompletionDialog(recordedPerfect: isPerfect);
   }
-  Future<void> _submitScore({required bool recordPerfect}) async {
+  Future<void> submitPerfectTime({
+    required String userId,
+    required String level,
+    required int score,
+    required int timeMs,
+  }) async {
+    final List existingList = await supabase
+        .from('leaderboard')
+        .select('score, time_ms')
+        .eq('user_id', userId)
+        .eq('level', level);
+  
+    Map<String, dynamic>? existing = existingList.isNotEmpty ? Map<String, dynamic>.from(existingList.first) : null;
+  
+    if (existing == null) {
+      await supabase.from('leaderboard').insert({
+        'user_id': userId,
+        'level': level,
+        'score': score,
+        'time_ms': timeMs,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return;
+    }
+  
+    final currentScore = (existing['score'] as int?) ?? 0;
+    final currentTime = existing['time_ms'] != null ? (existing['time_ms'] as int) : null;
+  
+    bool shouldUpdate = false;
+  
+    if (score > currentScore) {
+      shouldUpdate = true;
+    } else if (score == currentScore) {
+      if (currentTime == null || timeMs < currentTime) {
+        shouldUpdate = true;
+      }
+    }
+  
+    if (shouldUpdate) {
+      await supabase.from('leaderboard').update({
+        'score': score,
+        'time_ms': timeMs,
+        'created_at': DateTime.now().toIso8601String(),
+      }).eq('user_id', userId).eq('level', level);
+    }
+  }
+
+  /*Future<void> _submitScore({required bool recordPerfect}) async {
     final user = auth.currentUser;
     if (user == null) return;
   
@@ -179,7 +226,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       limit: 50,
     );
     setState(() {});
-  }
+  }*/
   void _showCompletionDialog({required bool recordedPerfect}) {
     final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
 
