@@ -252,6 +252,53 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     }
   }
 
+  Future<void> _submitScore({required bool recordPerfect}) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+  
+    final elapsedMs = _stopwatch.elapsedMilliseconds;
+  
+    if (recordPerfect) {
+      // Perfect run: submit score + time
+      await quizService.submitPerfectTime(
+        userId: user.id,
+        level: widget.level,
+        score: score,
+        timeMs: elapsedMs,
+      );
+  
+      // Give coins
+      await auth.addCoins(score);
+      final newCoins = await auth.fetchCoins();
+      setState(() => coins = newCoins);
+  
+      // Unlock next level
+      await auth.unlockLevel(widget.level);
+      final idx = levelOrder.indexOf(widget.level);
+      if (idx < levelOrder.length - 1) {
+        await auth.unlockLevel(levelOrder[idx + 1]);
+      }
+  
+      // Confetti
+      _confettiController.play();
+    } else {
+      // Regular run: update leaderboard if score higher
+      await quizService.submitScore(
+        userId: user.id,
+        level: widget.level,
+        score: score,
+      );
+    }
+  
+    // Refresh leaderboard (perfect runs only)
+    latestLeaderboard = await quizService.fetchLeaderboard(
+      level: widget.level,
+      limit: 50,
+    );
+  
+    setState(() {});
+  }
+
   /*Future<void> _submitScore({required bool recordPerfect}) async {
     final user = auth.currentUser;
     if (user == null) return;
