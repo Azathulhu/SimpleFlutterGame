@@ -404,36 +404,34 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            title: Text(
-              'Hello, $username 👋',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
-            ),
-            actions: [
-              Row(
-                children: [
-                  const Icon(Icons.monetization_on, color: Colors.amber),
-                  const SizedBox(width: 4),
-                  Text('$coins', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 12),
-                ],
-              ),
-            ],
-          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           centerTitle: true,
+          title: Text(
+            'Hello, $username 👋',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+          ),
           actions: [
-            IconButton(
-              onPressed: () async {
-                await auth.signOut();
-                if (!mounted) return;
-                Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const SignInPage()),
-                    (route) => false);
-              },
-              icon: const Icon(Icons.logout),
-              tooltip: 'Sign out',
-            )
+            Row(
+              children: [
+                const Icon(Icons.monetization_on, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text('$coins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(width: 12),
+                IconButton(
+                  onPressed: () async {
+                    await auth.signOut();
+                    if (!mounted) return;
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const SignInPage()),
+                      (route) => false,
+                    );
+                  },
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Sign out',
+                ),
+              ],
+            ),
           ],
           bottom: TabBar(
             controller: tabController,
