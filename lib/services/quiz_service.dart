@@ -30,6 +30,17 @@ class Question {
 class QuizService {
   final SupabaseClient supabase = Supabase.instance.client;
 
+  Future<Map<String, dynamic>?> fetchUserBestTime(String userId, String level) async {
+    final res = await supabase
+        .from('perfect_runs')
+        .select()
+        .eq('user_id', userId)
+        .eq('level', level)
+        .maybeSingle(); // returns null if no record
+
+    return res;
+  }
+
   Future<List<Question>> fetchQuestions(String difficulty, int limit) async {
     final List res = await supabase
         .from('questions')
