@@ -3,7 +3,6 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import '../animated_background.dart';
 
@@ -116,14 +115,15 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       _completeQuizEarly();
     }
   }
+
   Future<void> _finishDueToTimeout() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
-  
+
     final user = auth.currentUser;
     if (user != null) {
       final isPerfect = score == questions.length;
-  
+
       if (isPerfect) {
         await quizService.submitPerfectTime(
           userId: user.id,
@@ -139,28 +139,21 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           score: score,
         );
       }
-  
+
       latestLeaderboard = await quizService.fetchLeaderboard(
         level: widget.level,
         limit: 50,
       );
       setState(() {});
     }
-  
+
     _showCompletionDialog(recordedPerfect: score == questions.length);
   }
 
-  /*Future<void> _finishDueToTimeout() async {
-    _tickTimer?.cancel();
-    _stopwatch.stop();
-    await _submitScore(recordPerfect: false);
-    if (!mounted) return;
-    _showCompletionDialog(recordedPerfect: false);
-  }*/
   Future<void> _completeQuizEarly() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
-  
+
     final isPerfect = score == questions.length;
     final user = auth.currentUser;
     if (user != null) {
@@ -172,14 +165,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           timeMs: _stopwatch.elapsedMilliseconds,
         );
         await auth.addCoins(score);
-  
+
         // Unlock current and next level
         await auth.unlockLevel(widget.level);
         final idx = levelOrder.indexOf(widget.level);
         if (idx < levelOrder.length - 1) {
           await auth.unlockLevel(levelOrder[idx + 1]);
         }
-  
+
         _confettiController.play();
       } else {
         await quizService.submitScore(
@@ -188,80 +181,23 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           score: score,
         );
       }
-  
+
       latestLeaderboard = await quizService.fetchLeaderboard(
         level: widget.level,
         limit: 50,
       );
       setState(() {});
     }
-  
+
     _showCompletionDialog(recordedPerfect: isPerfect);
-  }
-
-  /*Future<void> _completeQuizEarly() async {
-    _tickTimer?.cancel();
-    _stopwatch.stop();
-
-    final isPerfect = score == questions.length;
-    await _submitScore(recordPerfect: isPerfect);
-
-    if (!mounted) return;
-    _showCompletionDialog(recordedPerfect: isPerfect);
-  }*/
-  Future<void> submitPerfectTime({
-    required String userId,
-    required String level,
-    required int score,
-    required int timeMs,
-  }) async {
-    final List existingList = await supabase
-        .from('leaderboard')
-        .select('score, time_ms')
-        .eq('user_id', userId)
-        .eq('level', level);
-  
-    Map<String, dynamic>? existing = existingList.isNotEmpty ? Map<String, dynamic>.from(existingList.first) : null;
-  
-    if (existing == null) {
-      await supabase.from('leaderboard').insert({
-        'user_id': userId,
-        'level': level,
-        'score': score,
-        'time_ms': timeMs,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-      return;
-    }
-  
-    final currentScore = (existing['score'] as int?) ?? 0;
-    final currentTime = existing['time_ms'] != null ? (existing['time_ms'] as int) : null;
-  
-    bool shouldUpdate = false;
-  
-    if (score > currentScore) {
-      shouldUpdate = true;
-    } else if (score == currentScore) {
-      if (currentTime == null || timeMs < currentTime) {
-        shouldUpdate = true;
-      }
-    }
-  
-    if (shouldUpdate) {
-      await supabase.from('leaderboard').update({
-        'score': score,
-        'time_ms': timeMs,
-        'created_at': DateTime.now().toIso8601String(),
-      }).eq('user_id', userId).eq('level', level);
-    }
   }
 
   Future<void> _submitScore({required bool recordPerfect}) async {
     final user = auth.currentUser;
     if (user == null) return;
-  
+
     final elapsedMs = _stopwatch.elapsedMilliseconds;
-  
+
     if (recordPerfect) {
       await quizService.submitPerfectTime(
         userId: user.id,
@@ -269,17 +205,17 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         score: score,
         timeMs: elapsedMs,
       );
-  
+
       await auth.addCoins(score);
       final newCoins = await auth.fetchCoins();
       setState(() => coins = newCoins);
-  
+
       await auth.unlockLevel(widget.level);
       final idx = levelOrder.indexOf(widget.level);
       if (idx < levelOrder.length - 1) {
         await auth.unlockLevel(levelOrder[idx + 1]);
       }
-  
+
       _confettiController.play();
     } else {
       await quizService.submitScore(
@@ -288,60 +224,15 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         score: score,
       );
     }
-  
+
     latestLeaderboard = await quizService.fetchLeaderboard(
       level: widget.level,
       limit: 50,
     );
-  
+
     setState(() {});
   }
 
-  /*Future<void> _submitScore({required bool recordPerfect}) async {
-    final user = auth.currentUser;
-    if (user == null) return;
-  
-    final elapsedMs = _stopwatch.elapsedMilliseconds;
-  
-    if (recordPerfect) {
-      // Submit perfect run using your QuizService
-      await quizService.submitPerfectTime(
-        userId: user.id,
-        level: widget.level,
-        score: score,
-        timeMs: elapsedMs,
-      );
-  
-      // Give coins (your existing AuthService handles coins)
-      await auth.addCoins(score);
-      final newCoins = await auth.fetchCoins();
-      setState(() => coins = newCoins);
-  
-      // Unlock next level
-      await auth.unlockLevel(widget.level);
-      final idx = levelOrder.indexOf(widget.level);
-      if (idx < levelOrder.length - 1) {
-        await auth.unlockLevel(levelOrder[idx + 1]);
-      }
-  
-      // Confetti
-      _confettiController.play();
-    } else {
-      // Regular run: just submit score
-      await quizService.submitScore(
-        userId: user.id,
-        level: widget.level,
-        score: score,
-      );
-    }
-  
-    // Refresh leaderboard
-    latestLeaderboard = await quizService.fetchLeaderboard(
-      level: widget.level,
-      limit: 50,
-    );
-    setState(() {});
-  }*/
   void _showCompletionDialog({required bool recordedPerfect}) {
     final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
 
