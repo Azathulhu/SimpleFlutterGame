@@ -23,6 +23,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   List<Question> questions = [];
   int currentIndex = 0;
   int score = 0;
+  int coins = 0;
   bool loading = true;
   String? errorMessage;
 
