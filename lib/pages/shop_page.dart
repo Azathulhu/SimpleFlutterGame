@@ -39,8 +39,40 @@ class _ShopPageState extends State<ShopPage> {
       loading = false;
     });
   }
-
   Future<void> _purchaseItem(Map<String, dynamic> item) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+  
+    final price = (item['price'] as num).toInt();
+    if (coins < price) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not enough coins!')));
+      return;
+    }
+  
+    try {
+      await supabase.from('user_items').insert({
+        'user_id': user.id,
+        'item_id': item['id'],
+      });
+  
+      // Deduct coins
+      await auth.addCoins(-price);
+      final newCoins = await auth.fetchCoins();
+      setState(() => coins = newCoins);
+  
+      // Notify HomePage to update app bar
+      widget.onCoinsChanged(newCoins);
+  
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchased ${item['name']}!')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Already owned!')));
+    }
+  }
+
+  /*Future<void> _purchaseItem(Map<String, dynamic> item) async {
     final user = auth.currentUser;
     if (user == null) return;
 
@@ -68,7 +100,7 @@ class _ShopPageState extends State<ShopPage> {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Already owned!')));
     }
-  }
+  }*/
 
   @override
   Widget build(BuildContext context) {
