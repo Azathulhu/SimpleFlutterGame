@@ -3,7 +3,6 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
-import '../services/coin_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import '../animated_background.dart';
@@ -140,48 +139,48 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   Future<void> _submitScore({required bool recordPerfect}) async {
     final user = auth.currentUser;
     if (user == null) return;
-  
+
     if (recordPerfect) {
-      // 1) record perfect run
+      // record perfect-time score entry
       await quizService.submitPerfectTime(
         userId: user.id,
         level: widget.level,
         score: score,
         timeMs: _stopwatch.elapsedMilliseconds,
       );
-  
-      // 2) ADD COINS — (CoinService ONLY)
-      await CoinService().addCoins(
-        userId: Supabase.instance.client.auth.currentUser!.id,
-        level: widget.level,
-        timeMs: _stopwatch.elapsedMilliseconds,
-      );
-  
-      // 3) unlock levels
+
+      // Award coins using AuthService.addCoins (users.coins column)
+      // formula: base * difficulty multiplier / timeSec factor -> integer amount
+      final int base = 50;
+      final int multiplier = widget.level == 'easy' ? 1 : widget.level == 'medium' ? 2 : 3;
+      final int timeSec = _stopwatch.elapsed.inSeconds.clamp(1, 999);
+      final int coinsEarned = ((base * multiplier) / timeSec * 10).ceil();
+
+      await auth.addCoins(coinsEarned);
+
+      // unlock current and next levels
       await auth.unlockLevel(widget.level);
       final idx = levelOrder.indexOf(widget.level);
       if (idx < levelOrder.length - 1) {
         await auth.unlockLevel(levelOrder[idx + 1]);
       }
-  
-      // 4) CONFETTI + REFRESH LOCAL UI COINS
+
+      // confetti and refresh local coin UI
       _confettiController.play();
-      final newCoins = await CoinService().getCoins(user.id);
-      setState(() => coins = newCoins);
-  
+      final latest = await auth.fetchCoins();
+      if (mounted) setState(() => coins = latest);
     } else {
-      // NON-perfect — record score only
+      // non-perfect: submit score only
       await quizService.submitScore(
         userId: user.id,
         level: widget.level,
         score: score,
       );
     }
-  
-    latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
-    setState(() {});
-  }
 
+    latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+    if (mounted) setState(() {});
+  }
 
   void _showCompletionDialog({required bool recordedPerfect}) {
     final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
