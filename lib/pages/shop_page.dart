@@ -76,7 +76,8 @@ class _ShopPageState extends State<ShopPage> {
     });
 
     setState(() {
-      coins -= item!['price'];
+      //coins -= item!['price'];
+      coins -= (item!['price'] as num).toInt();
       purchased = true;
     });
 
