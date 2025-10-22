@@ -148,6 +148,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         timeMs: _stopwatch.elapsedMilliseconds,
       );
 
+      //new shit
+      await CoinService().addCoins(
+        userId: supabase.auth.currentUser!.id,
+        level: currentDifficulty,
+        timeMs: elapsedTimeMs,
+      );
+
+
       // Unlock current and next level only if perfect
       await auth.unlockLevel(widget.level);
       final currentIndex = levelOrder.indexOf(widget.level);
