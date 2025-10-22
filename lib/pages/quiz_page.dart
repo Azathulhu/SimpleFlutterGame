@@ -142,36 +142,41 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final elapsedMs = _stopwatch.elapsedMilliseconds;
   
     if (recordPerfect) {
-      // fetchUserBestTime should return Map<String, dynamic> or null
-      final existing = await quizService.fetchUserBestTime(user.id, widget.level);
+      // Get user's best time
+      final existing = await quizService.supabase
+          .from('quiz_scores')
+          .select('time_ms')
+          .eq('user_id', user.id)
+          .eq('level', widget.level)
+          .maybeSingle();
+  
       final existingMs = existing != null ? existing['time_ms'] as int : null;
   
+      // Submit if no previous record or faster than previous
       if (existingMs == null || elapsedMs < existingMs) {
-        // New best time! Submit it
-        await quizService.submitPerfectTime(
-          userId: user.id,
-          level: widget.level,
-          score: score,
-          timeMs: elapsedMs,
-        );
-  
-        // Coins
-        await auth.addCoins(score); // adjust coin amount if needed
-        final newCoins = await auth.fetchCoins();
-        setState(() => coins = newCoins);
+        await quizService.supabase.from('quiz_scores').upsert({
+          'user_id': user.id,
+          'level': widget.level,
+          'score': score,
+          'time_ms': elapsedMs,
+        });
       }
   
-      // Unlock next levels
+      // Give coins (using your existing AuthService)
+      await auth.addCoins(score);
+      final newCoins = await auth.fetchCoins();
+      setState(() => coins = newCoins);
+  
+      // Unlock next level
       await auth.unlockLevel(widget.level);
       final idx = levelOrder.indexOf(widget.level);
       if (idx < levelOrder.length - 1) {
         await auth.unlockLevel(levelOrder[idx + 1]);
       }
   
+      // Confetti
       _confettiController.play();
-  
     } else {
-      // Non-perfect run
       await quizService.submitScore(
         userId: user.id,
         level: widget.level,
@@ -186,6 +191,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     );
     setState(() {});
   }
+
 
 
   void _showCompletionDialog({required bool recordedPerfect}) {
