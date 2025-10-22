@@ -58,6 +58,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _loadLeaderboard();
     _loadCoins();
   }
+  //new
+  void updateCoins(int newCoins) {
+    setState(() => coins = newCoins);
+  }
 
   @override
   void dispose() {
@@ -453,7 +457,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               playTab(),
               leaderboardTab(),
-              ShopPage(),
+              ShopPage(
+                coins: coins,
+                onCoinsChanged: updateCoins,
+              ),
             ],
           ),
         ),
