@@ -142,11 +142,12 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final elapsedMs = _stopwatch.elapsedMilliseconds;
   
     if (recordPerfect) {
-      // Check existing best time
-      final existing = await quizService.fetchUserBestTime(user.id, widget.level); // returns int?
-      
-      if (existing == null || elapsedMs < existing) {
-        // Submit new perfect time only if better
+      // fetchUserBestTime should return Map<String, dynamic> or null
+      final existing = await quizService.fetchUserBestTime(user.id, widget.level);
+      final existingMs = existing != null ? existing['time_ms'] as int : null;
+  
+      if (existingMs == null || elapsedMs < existingMs) {
+        // New best time! Submit it
         await quizService.submitPerfectTime(
           userId: user.id,
           level: widget.level,
@@ -154,12 +155,12 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           timeMs: elapsedMs,
         );
   
-        // Coins handled directly by your AuthService
-        await auth.addCoins(score); // or however many coins you want to give
+        // Coins
+        await auth.addCoins(score); // adjust coin amount if needed
         final newCoins = await auth.fetchCoins();
         setState(() => coins = newCoins);
       }
-      
+  
       // Unlock next levels
       await auth.unlockLevel(widget.level);
       final idx = levelOrder.indexOf(widget.level);
@@ -167,11 +168,10 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         await auth.unlockLevel(levelOrder[idx + 1]);
       }
   
-      // Confetti celebration
       _confettiController.play();
-      
+  
     } else {
-      // Non-perfect runs: just submit score
+      // Non-perfect run
       await quizService.submitScore(
         userId: user.id,
         level: widget.level,
@@ -179,7 +179,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       );
     }
   
-    // Refresh leaderboard for this level
+    // Refresh leaderboard
     latestLeaderboard = await quizService.fetchLeaderboard(
       level: widget.level,
       limit: 50,
