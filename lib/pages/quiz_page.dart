@@ -122,15 +122,16 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   
     final user = auth.currentUser;
     if (user != null) {
-      // Only record perfect runs for fastest time
-      if (score == questions.length) {
+      final isPerfect = score == questions.length;
+  
+      if (isPerfect) {
         await quizService.submitPerfectTime(
           userId: user.id,
           level: widget.level,
           score: score,
           timeMs: _stopwatch.elapsedMilliseconds,
         );
-        await auth.addCoins(score); // optional coin reward
+        await auth.addCoins(score);
       } else {
         await quizService.submitScore(
           userId: user.id,
@@ -148,6 +149,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   
     _showCompletionDialog(recordedPerfect: score == questions.length);
   }
+
   /*Future<void> _finishDueToTimeout() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
@@ -169,15 +171,16 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
           score: score,
           timeMs: _stopwatch.elapsedMilliseconds,
         );
-        await auth.addCoins(score); // give coins for perfect run
+        await auth.addCoins(score);
   
-        // Unlock next level
+        // Unlock current and next level
         await auth.unlockLevel(widget.level);
-        final levelOrder = ['easy', 'medium', 'hard'];
         final idx = levelOrder.indexOf(widget.level);
         if (idx < levelOrder.length - 1) {
           await auth.unlockLevel(levelOrder[idx + 1]);
         }
+  
+        _confettiController.play();
       } else {
         await quizService.submitScore(
           userId: user.id,
@@ -195,6 +198,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   
     _showCompletionDialog(recordedPerfect: isPerfect);
   }
+
   /*Future<void> _completeQuizEarly() async {
     _tickTimer?.cancel();
     _stopwatch.stop();
@@ -259,7 +263,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final elapsedMs = _stopwatch.elapsedMilliseconds;
   
     if (recordPerfect) {
-      // Perfect run: submit score + time
       await quizService.submitPerfectTime(
         userId: user.id,
         level: widget.level,
@@ -267,22 +270,18 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         timeMs: elapsedMs,
       );
   
-      // Give coins
       await auth.addCoins(score);
       final newCoins = await auth.fetchCoins();
       setState(() => coins = newCoins);
   
-      // Unlock next level
       await auth.unlockLevel(widget.level);
       final idx = levelOrder.indexOf(widget.level);
       if (idx < levelOrder.length - 1) {
         await auth.unlockLevel(levelOrder[idx + 1]);
       }
   
-      // Confetti
       _confettiController.play();
     } else {
-      // Regular run: update leaderboard if score higher
       await quizService.submitScore(
         userId: user.id,
         level: widget.level,
@@ -290,7 +289,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       );
     }
   
-    // Refresh leaderboard (perfect runs only)
     latestLeaderboard = await quizService.fetchLeaderboard(
       level: widget.level,
       limit: 50,
