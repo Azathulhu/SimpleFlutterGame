@@ -404,17 +404,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text(
-            'Hello, $username 👋',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
-          ),
-          Row(
-            children: [
-              const Icon(Icons.monetization_on, color: Colors.amber),
-              const SizedBox(width: 4),
-              Text('$coins', style: const TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(
+              'Hello, $username 👋',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+            ),
+            actions: [
+              Row(
+                children: [
+                  const Icon(Icons.monetization_on, color: Colors.amber),
+                  const SizedBox(width: 4),
+                  Text('$coins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                ],
+              ),
             ],
           ),
           centerTitle: true,
