@@ -3,6 +3,8 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
+import '../services/coin_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import '../animated_background.dart';
 
