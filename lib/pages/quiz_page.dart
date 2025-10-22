@@ -142,27 +142,15 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final elapsedMs = _stopwatch.elapsedMilliseconds;
   
     if (recordPerfect) {
-      // Get user's best time
-      final existing = await quizService.supabase
-          .from('quiz_scores')
-          .select('time_ms')
-          .eq('user_id', user.id)
-          .eq('level', widget.level)
-          .maybeSingle();
+      // Submit perfect run using your QuizService
+      await quizService.submitPerfectTime(
+        userId: user.id,
+        level: widget.level,
+        score: score,
+        timeMs: elapsedMs,
+      );
   
-      final existingMs = existing != null ? existing['time_ms'] as int : null;
-  
-      // Submit if no previous record or faster than previous
-      if (existingMs == null || elapsedMs < existingMs) {
-        await quizService.supabase.from('quiz_scores').upsert({
-          'user_id': user.id,
-          'level': widget.level,
-          'score': score,
-          'time_ms': elapsedMs,
-        });
-      }
-  
-      // Give coins (using your existing AuthService)
+      // Give coins (your existing AuthService handles coins)
       await auth.addCoins(score);
       final newCoins = await auth.fetchCoins();
       setState(() => coins = newCoins);
@@ -177,6 +165,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       // Confetti
       _confettiController.play();
     } else {
+      // Regular run: just submit score
       await quizService.submitScore(
         userId: user.id,
         level: widget.level,
@@ -191,9 +180,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     );
     setState(() {});
   }
-
-
-
   void _showCompletionDialog({required bool recordedPerfect}) {
     final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
 
