@@ -140,14 +140,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final user = auth.currentUser;
     if (user == null) return;
   
-    if (recordPerfect) {
-      final elapsedMs = _stopwatch.elapsedMilliseconds;
+    final elapsedMs = _stopwatch.elapsedMilliseconds;
   
-      // 1) Fetch current leaderboard entry for this user
+    if (recordPerfect) {
+      // check if user has existing best
       final existing = await quizService.fetchUserBestTime(user.id, widget.level);
   
-      // 2) Only submit if new time is faster OR no previous record exists
-      if (existing == null || elapsedMs < existing['time_ms'] as int) {
+      if (existing == null || elapsedMs < existing) {
+        // submit new best
         await quizService.submitPerfectTime(
           userId: user.id,
           level: widget.level,
@@ -156,27 +156,18 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         );
       }
   
-      // 3) Add coins
-      await CoinService().addCoins(
-        userId: user.id,
-        level: widget.level,
-        timeMs: elapsedMs,
-      );
-  
-      // 4) Unlock next levels
+      // unlock next levels
       await auth.unlockLevel(widget.level);
       final idx = levelOrder.indexOf(widget.level);
-      if (idx < levelOrder.length - 1) {
-        await auth.unlockLevel(levelOrder[idx + 1]);
-      }
+      if (idx < levelOrder.length - 1) await auth.unlockLevel(levelOrder[idx + 1]);
   
-      // 5) Confetti + refresh coins
+      // CONFETTI + update coins (already handled elsewhere)
       _confettiController.play();
-      final newCoins = await CoinService().getCoins(user.id);
+      final newCoins = await auth.fetchCoins();
       setState(() => coins = newCoins);
   
     } else {
-      // Non-perfect runs are not recorded
+      // NON-perfect — just submit score
       await quizService.submitScore(
         userId: user.id,
         level: widget.level,
@@ -184,11 +175,13 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
       );
     }
   
-    // Always refresh leaderboard
-    latestLeaderboard = await quizService.fetchLeaderboard(level: widget.level, limit: 50);
+    // refresh leaderboard
+    latestLeaderboard = await quizService.fetchLeaderboard(
+      level: widget.level,
+      limit: 50,
+    );
     setState(() {});
   }
-
 
   void _showCompletionDialog({required bool recordedPerfect}) {
     final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
