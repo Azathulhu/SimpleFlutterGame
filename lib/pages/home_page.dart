@@ -459,7 +459,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               leaderboardTab(),
               ShopPage(
                 coins: coins,
-                onCoinsChanged: updateCoins,
+                onCoinsChanged: (newCoins) => setState(() => coins = newCoins),
               ),
             ],
           ),
