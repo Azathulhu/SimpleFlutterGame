@@ -5,6 +5,122 @@ import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ShopPage extends StatefulWidget {
+  final int coins;
+  final Function(int) onCoinsChanged; // callback to update coins in HomePage
+
+  const ShopPage({super.key, required this.coins, required this.onCoinsChanged});
+
+  @override
+  State<ShopPage> createState() => _ShopPageState();
+}
+
+class _ShopPageState extends State<ShopPage> {
+  final AuthService auth = AuthService();
+  final supabase = Supabase.instance.client;
+  late int coins;
+  List<Map<String, dynamic>> items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    coins = widget.coins;
+    _loadItems();
+  }
+
+  Future<void> _loadItems() async {
+    final res = await supabase.from('shop_items').select();
+    setState(() {
+      items = List<Map<String, dynamic>>.from(res);
+    });
+  }
+
+  Future<void> _purchaseItem(Map<String, dynamic> item) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    final price = (item['price'] as num).toInt();
+    if (coins < price) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not enough coins!')));
+      return;
+    }
+
+    try {
+      await supabase.from('user_items').insert({
+        'user_id': user.id,
+        'item_id': item['id'],
+      });
+
+      // Deduct coins
+      await auth.addCoins(-price);
+      final newCoins = await auth.fetchCoins();
+      setState(() => coins = newCoins);
+
+      // Notify HomePage to update app bar
+      widget.onCoinsChanged(newCoins);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchased ${item['name']}!')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Already owned!')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedGradientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('Shop'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: items.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: items.length,
+                itemBuilder: (_, index) {
+                  final item = items[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      children: [
+                        Image.network(
+                          item['asset_url'],
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const SizedBox(height: 150, child: Center(child: Icon(Icons.image_not_supported))),
+                        ),
+                        ListTile(
+                          title: Text(item['name']),
+                          subtitle: Text('Price: ${item['price']} coins'),
+                          trailing: ElevatedButton(
+                            onPressed: () => _purchaseItem(item),
+                            child: const Text('Buy'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+/*import 'package:flutter/material.dart';
+import '../animated_background.dart';
+import '../theme.dart';
+import '../services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class ShopPage extends StatefulWidget {
   const ShopPage({super.key});
 
   @override
@@ -180,7 +296,7 @@ class _ShopPageState extends State<ShopPage> {
       ),
     );
   }
-}
+}*/
 
 /*import 'package:flutter/material.dart';
 import '../animated_background.dart';
