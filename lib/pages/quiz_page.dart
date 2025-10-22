@@ -154,28 +154,19 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         final nextLevel = levelOrder[currentIndex + 1];
         await auth.unlockLevel(nextLevel);
       }
-      final maxTimeMs = timerDuration.inMilliseconds;
-      final timeTakenMs = _stopwatch.elapsedMilliseconds;
-  
-      // Difficulty multiplier
-      int difficultyMultiplier = widget.level == 'easy'
-          ? 1
-          : widget.level == 'medium'
-              ? 2
-              : 3;
-  
-      // Base coins
-      int baseCoins = 10;
-  
-      // Formula: faster completion = more coins
-      int coinsAwarded =
-          ((baseCoins * difficultyMultiplier) * (maxTimeMs / timeTakenMs)).round();
-  
-      // Add coins to user account
-      await auth.addCoins(coinsAwarded);
-      print('Coins awarded: $coinsAwarded'); // optional debug
-
+       // Award coins: formula = base * level multiplier / time seconds
+      int base = 50; // base coins for easy
+      int multiplier = widget.level == 'easy' ? 1 : widget.level == 'medium' ? 2 : 3;
+      int timeSec = _stopwatch.elapsed.inSeconds.clamp(1, 999);
+      int coinsEarned = ((base * multiplier) / timeSec * 10).ceil();
+    
+      await auth.addCoins(coinsEarned); // <-- Add coins
       _confettiController.play();
+       // Refresh coins in UI
+      if (mounted) {
+        final newCoins = await auth.fetchCoins();
+        setState(() => coins = newCoins);
+      }
     } else {
       // Only submit score if not perfect (time ignored)
       await quizService.submitScore(
