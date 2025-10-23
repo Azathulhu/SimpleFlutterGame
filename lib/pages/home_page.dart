@@ -270,58 +270,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  /*Widget playTab() {
-    if (loading) return const Center(child: CircularProgressIndicator());
-
-    return Column(
-      children: [
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 140,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: levels.length,
-            itemBuilder: (_, index) {
-              final lvl = levels[index];
-              return levelCard(lvl, unlocked.contains(lvl));
-            },
-          ),
-        ),
-        const SizedBox(height: 20),
-        Center(
-          child: ScaleTransition(
-            scale: _buttonScaleAnimation,
-            child: ElevatedButton(
-              onPressed: unlocked.contains(selectedLevel)
-                  ? () async {
-                      confettiController.play();
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => QuizPage(level: selectedLevel),
-                        ),
-                      );
-                      await _loadUnlocked();
-                      await _loadLeaderboard();
-                    }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24)),
-                backgroundColor: AppTheme.primary,
-                textStyle: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              child: const Text('Start Quiz'),
-            ),
-          ),
-        ),
-      ],
-    );
-  }*/
-
   Widget leaderboardTab() {
     if (leaderboardLoading)
       return const Center(child: CircularProgressIndicator());
