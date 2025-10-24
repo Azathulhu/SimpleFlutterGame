@@ -5,6 +5,8 @@ import '../services/quiz_service.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
 import '../animated_background.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 const List<String> levelOrder = ['easy', 'medium', 'hard'];
 
