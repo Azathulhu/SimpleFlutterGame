@@ -180,52 +180,66 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               const SizedBox(height: 12),
               SizedBox(
                 height: 220,
-                child: PageView.builder(
-                  controller: pageController,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: levels.length,
-                  onPageChanged: (idx) {
-                    setState(() => selectedLevel = levels[idx]);
-                    _loadUnlocked();
-                  },
-                  itemBuilder: (context, index) {
-                    return AnimatedBuilder(
-                      animation: pageController,
-                      builder: (context, child) {
-                        double pageOffset = 0;
-                        try {
-                          pageOffset = pageController.hasClients
-                              ? pageController.page ?? pageController.initialPage.toDouble()
-                              : pageController.initialPage.toDouble();
-                        } catch (_) {
-                          pageOffset = pageController.initialPage.toDouble();
-                        }
-  
-                        final distance = (pageOffset - index).clamp(-1.0, 1.0);
-                        final scale = 0.8 + (1 - distance.abs()) * 0.25;
-                        final rotationY = distance * 0.35;
-                        final opacity = 0.5 + (1 - distance.abs()) * 0.5;
-  
-                        return Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()
-                            ..setEntry(3, 2, 0.001)
-                            ..rotateY(rotationY),
-                          child: Opacity(
-                            opacity: opacity,
-                            child: Transform.scale(
-                              scale: scale,
-                              child: levelCard(
-                                levels[index],
-                                unlocked.contains(levels[index]),
-                                isSelected: selectedLevel == levels[index],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                child: Listener(
+                  // capture drag end for momentum
+                  onPointerUp: (_) {
+                    // optional: snap to closest after release
+                    final closestIndex = pageController.page!.round();
+                    pageController.animateToPage(
+                      closestIndex,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.decelerate,
                     );
                   },
+                  child: PageView.builder(
+                    controller: pageController,
+                    physics: const BouncingScrollPhysics(
+                        parent: ClampingScrollPhysics()), // free-scrolling
+                    pageSnapping: false, // disable automatic snapping
+                    itemCount: levels.length,
+                    onPageChanged: (idx) {
+                      setState(() => selectedLevel = levels[idx]);
+                      _loadUnlocked();
+                    },
+                    itemBuilder: (context, index) {
+                      return AnimatedBuilder(
+                        animation: pageController,
+                        builder: (context, child) {
+                          double pageOffset = 0;
+                          try {
+                            pageOffset = pageController.hasClients
+                                ? pageController.page ?? pageController.initialPage.toDouble()
+                                : pageController.initialPage.toDouble();
+                          } catch (_) {
+                            pageOffset = pageController.initialPage.toDouble();
+                          }
+  
+                          final distance = (pageOffset - index).clamp(-1.0, 1.0);
+                          final scale = 0.8 + (1 - distance.abs()) * 0.25;
+                          final rotationY = distance * 0.35;
+                          final opacity = 0.5 + (1 - distance.abs()) * 0.5;
+  
+                          return Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, 0.001)
+                              ..rotateY(rotationY),
+                            child: Opacity(
+                              opacity: opacity,
+                              child: Transform.scale(
+                                scale: scale,
+                                child: levelCard(
+                                  levels[index],
+                                  unlocked.contains(levels[index]),
+                                  isSelected: selectedLevel == levels[index],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -260,116 +274,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ],
     );
   }
-
-  /*Widget playTab() {
-    if (loading) return const Center(child: CircularProgressIndicator());
-  
-    final pageController = PageController(
-      viewportFraction: 0.56,
-      initialPage: levels.indexOf(selectedLevel),
-    );
-  
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _glassCard(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _glowingText(
-                      'Choose difficulty',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Icon(Icons.settings, color: Colors.white.withOpacity(0.65)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 220,
-                child: PageView.builder(
-                  controller: pageController,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: levels.length,
-                  onPageChanged: (idx) {
-                    setState(() => selectedLevel = levels[idx]);
-                    _loadUnlocked();
-                  },
-                  itemBuilder: (context, index) {
-                    return AnimatedBuilder(
-                      animation: pageController,
-                      builder: (context, child) {
-                        double pageOffset = 0;
-                        try {
-                          pageOffset = pageController.page ?? pageController.initialPage.toDouble();
-                        } catch (_) {
-                          pageOffset = pageController.initialPage.toDouble();
-                        }
-  
-                        final distance = (pageOffset - index).clamp(-1.0, 1.0);
-                        final scale = 1 - distance.abs() * 0.25;
-                        final rotationY = distance * 0.35;
-                        final opacity = 0.5 + scale * 0.5;
-  
-                        return Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()
-                            ..setEntry(3, 2, 0.001)
-                            ..rotateY(rotationY),
-                          child: Opacity(
-                            opacity: opacity,
-                            child: Transform.scale(
-                              scale: scale,
-                              child: levelCard(
-                                levels[index],
-                                unlocked.contains(levels[index]),
-                                isSelected: selectedLevel == levels[index],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 14),
-              ScaleTransition(
-                scale: _breatheAnim,
-                child: ElevatedButton(
-                  onPressed: unlocked.contains(selectedLevel)
-                      ? () async {
-                          confettiController.play();
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => QuizPage(level: selectedLevel),
-                            ),
-                          );
-                          await _loadUnlocked();
-                          await _loadCoins();
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    backgroundColor: AppTheme.primary.withOpacity(0.95),
-                  ),
-                  child: _glowingText('Start Quiz', fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }*/
 
   Widget levelCard(String level, bool enabled, {required bool isSelected}) {
     return Container(
