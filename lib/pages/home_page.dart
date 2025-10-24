@@ -124,90 +124,109 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Play Tab content (refined)
   Widget playTab() {
     if (loading) return const Center(child: CircularProgressIndicator());
-
-    final pageController = PageController(viewportFraction: 0.56, initialPage: levels.indexOf(selectedLevel));
-
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-        _glassCard(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Choose difficulty',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.95)),
+  
+    final pageController = PageController(
+      viewportFraction: 0.56,
+      initialPage: levels.indexOf(selectedLevel),
+    );
+  
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // center vertically
+        children: [
+          _glassCard(
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Choose difficulty',
+                        textAlign: TextAlign.center, // center text
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withOpacity(0.95),
+                        ),
+                      ),
                     ),
-                  ),
-                  Icon(Icons.settings, color: Colors.white.withOpacity(0.65)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 200,
-                child: PageView.builder(
-                  controller: pageController,
-                  itemCount: levels.length,
-                  onPageChanged: (idx) {
-                    setState(() => selectedLevel = levels[idx]);
-                    _loadUnlocked();
-                  },
-                  itemBuilder: (context, index) {
-                    final level = levels[index];
-                    final enabled = unlocked.contains(level);
-                    return AnimatedBuilder(
-                      animation: pageController,
-                      builder: (context, child) {
-                        double value = 0;
-                        if (pageController.position.haveDimensions) {
-                          value = pageController.page! - index;
-                          value = (1 - (value.abs() * 0.45)).clamp(0.0, 1.0);
-                        } else {
-                          value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
-                        }
-                        return Transform(
-                          transform: Matrix4.identity()..setEntry(3, 2, 0.001)..rotateY((pageController.position.haveDimensions ? pageController.page! - index : index - levels.indexOf(selectedLevel)) * 0.45),
-                          alignment: Alignment.center,
-                          child: Opacity(
-                            opacity: value,
-                            child: Transform.scale(
-                              scale: 0.8 + (value * 0.25),
-                              child: levelCard(level, enabled, isSelected: selectedLevel == level),
-                            ),
-                          ),
+                    Icon(Icons.settings, color: Colors.white.withOpacity(0.65)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 200,
+                  child: PageView.builder(
+                      controller: pageController,
+                      itemCount: levels.length,
+                      physics: const BouncingScrollPhysics(), // smooth swipe
+                      onPageChanged: (idx) {
+                        setState(() => selectedLevel = levels[idx]);
+                        _loadUnlocked();
+                      },
+                      itemBuilder: (context, index) {
+                        final level = levels[index];
+                        final enabled = unlocked.contains(level);
+                        return AnimatedBuilder(
+                          animation: pageController,
+                          builder: (context, child) {
+                            double value = 0;
+                            if (pageController.position.haveDimensions) {
+                              value = pageController.page! - index;
+                              value = (1 - (value.abs() * 0.4)).clamp(0.0, 1.0); // smoother fade
+                            } else {
+                              value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
+                            }
+                            return Transform(
+                              transform: Matrix4.identity()
+                                ..setEntry(3, 2, 0.001)
+                                ..rotateY((pageController.position.haveDimensions
+                                        ? pageController.page! - index
+                                        : index - levels.indexOf(selectedLevel)) *
+                                    0.25), // smaller rotation = smoother
+                              alignment: Alignment.center,
+                              child: Opacity(
+                                opacity: value,
+                                child: Transform.scale(
+                                  scale: 0.8 + (value * 0.25),
+                                  child: levelCard(level, enabled, isSelected: selectedLevel == level),
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
+                    )
                 ),
-              ),
-              const SizedBox(height: 14),
-              ScaleTransition(
-                scale: _breatheAnim,
-                child: ElevatedButton(
-                  onPressed: unlocked.contains(selectedLevel)
-                      ? () async {
-                          confettiController.play();
-                          await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizPage(level: selectedLevel)));
-                          await _loadUnlocked();
-                          await _loadCoins();
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    backgroundColor: AppTheme.primary.withOpacity(0.95),
+                const SizedBox(height: 14),
+                ScaleTransition(
+                  scale: _breatheAnim,
+                  child: ElevatedButton(
+                    onPressed: unlocked.contains(selectedLevel)
+                        ? () async {
+                            confettiController.play();
+                            await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => QuizPage(level: selectedLevel)));
+                            await _loadUnlocked();
+                            await _loadCoins();
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      backgroundColor: AppTheme.primary.withOpacity(0.95),
+                    ),
+                    child: const Text('Start Quiz', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  child: const Text('Start Quiz', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
