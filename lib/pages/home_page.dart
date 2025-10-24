@@ -40,7 +40,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late AnimationController _breatheController;
   late Animation<double> _breatheAnim;
 
-  // Level carousel controller (new)
+  // Level carousel controller (clean and robust)
   late final PageController levelPageController;
 
   @override
@@ -63,8 +63,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       initialPage: levels.indexOf(selectedLevel),
     );
 
-    // When user finishes swiping, onPageChanged will handle selection and leaderboard reload.
-
+    // load data
     _loadUsername();
     _loadUnlocked();
     _loadCoins();
@@ -148,7 +147,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // --- Updated Play Tab: centered PageView carousel with gentle center scaling ---
+  // --- PLAY TAB: centered PageView carousel with gentle center scaling ---
   Widget playTab(BoxConstraints constraints) {
     if (loading) return const Center(child: CircularProgressIndicator());
 
@@ -173,87 +172,99 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
         const SizedBox(height: 22),
 
-        // Centered PageView that scales the center item gently
+        // IMPORTANT: wrap PageView in ClipRect to avoid any "bleed" / extra widgets showing on edges.
+        // Also wrap in ScrollConfiguration to remove system glows/scrollbars that can show on some devices.
         SizedBox(
           height: 220,
-          child: PageView.builder(
-            controller: levelPageController,
-            physics: const BouncingScrollPhysics(),
-            itemCount: levels.length,
-            onPageChanged: (index) {
-              // update selected level and reload leaderboard immediately
-              if (mounted) {
-                setState(() => selectedLevel = levels[index]);
-                _loadLeaderboard();
-              }
-            },
-            itemBuilder: (context, index) {
-              final level = levels[index];
-              final enabled = unlocked.contains(level);
-              final isSelected = selectedLevel == level;
+          child: ClipRect(
+            child: ScrollConfiguration(
+              behavior: NoGlowScrollBehavior(),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  // Force rebuild while user scrolls so we update scale/opacity smoothly
+                  // but keep it cheap: only setState when the PageController has a page value.
+                  if (levelPageController.hasClients) {
+                    if (notification is ScrollUpdateNotification || notification is ScrollEndNotification) {
+                      setState(() {});
+                    }
+                  }
+                  return false;
+                },
+                child: PageView.builder(
+                  controller: levelPageController,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: levels.length,
+                  onPageChanged: (index) {
+                    // update selected level and reload leaderboard immediately
+                    if (mounted) {
+                      setState(() => selectedLevel = levels[index]);
+                      _loadLeaderboard();
+                    }
+                  },
+                  itemBuilder: (context, index) {
+                    final level = levels[index];
+                    final enabled = unlocked.contains(level);
+                    final isSelected = selectedLevel == level;
 
-              return AnimatedBuilder(
-                animation: levelPageController,
-                builder: (context, child) {
-                  // compute page value safely
-                  double page = levelPageController.hasClients && levelPageController.page != null
-                      ? levelPageController.page!
-                      : levelPageController.initialPage.toDouble();
+                    // compute distance-to-center and scale
+                    double page = levelPageController.hasClients && levelPageController.page != null
+                        ? levelPageController.page!
+                        : levelPageController.initialPage.toDouble();
+                    final distance = (index - page).abs();
+                    final scale = (1.08 - (distance * 0.18)).clamp(0.90, 1.08);
+                    final opacity = (1.0 - (distance * 0.25)).clamp(0.5, 1.0);
 
-                  final distance = (index - page).abs();
-                  // scale: center -> ~1.08, far -> ~0.9
-                  final scale = (1.08 - (distance * 0.18)).clamp(0.90, 1.08);
-                  final opacity = (1.0 - (distance * 0.25)).clamp(0.5, 1.0);
-
-                  return Center(
-                    child: Transform.scale(
-                      scale: scale,
-                      alignment: Alignment.center,
-                      child: Opacity(
-                        opacity: opacity,
-                        child: GestureDetector(
-                          onTap: () {
-                            // tap selects and animates to that page smoothly
-                            levelPageController.animateToPage(index,
-                                duration: const Duration(milliseconds: 420), curve: Curves.easeInOutCubic);
-                            // update selection & reload leaderboard (onPageChanged will also run)
-                            setState(() => selectedLevel = level);
-                            _loadLeaderboard();
-                          },
-                          child: Container(
-                            width: 160,
-                            padding: const EdgeInsets.all(16),
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              gradient: isSelected
-                                  ? LinearGradient(colors: [AppTheme.primary.withOpacity(0.98), AppTheme.accent.withOpacity(0.9)], begin: Alignment.topLeft, end: Alignment.bottomRight)
-                                  : LinearGradient(colors: [Colors.white.withOpacity(0.02), Colors.white.withOpacity(0.01)]),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: isSelected ? [BoxShadow(color: AppTheme.primary.withOpacity(0.18), blurRadius: 20, offset: const Offset(0, 10))] : [],
-                              border: Border.all(color: Colors.white.withOpacity(0.02)),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
-                                  size: 36,
-                                  color: isSelected ? Colors.white : Colors.white70,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(level.toUpperCase(), style: glowTextStyle(size: 16, weight: FontWeight.w800)),
-                                const SizedBox(height: 8),
-                                Text(enabled ? 'Unlocked' : 'Locked', style: glowTextStyle(size: 12, weight: FontWeight.w600).copyWith(color: Colors.white70)),
-                              ],
+                    return Center(
+                      child: Transform.scale(
+                        scale: scale,
+                        alignment: Alignment.center,
+                        child: Opacity(
+                          opacity: opacity,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              // tap selects and animates to that page smoothly
+                              levelPageController.animateToPage(index,
+                                  duration: const Duration(milliseconds: 420), curve: Curves.easeInOutCubic);
+                              // update selection & reload
+                              setState(() => selectedLevel = level);
+                              _loadLeaderboard();
+                            },
+                            child: Container(
+                              width: 160,
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                gradient: isSelected
+                                    ? LinearGradient(colors: [AppTheme.primary.withOpacity(0.98), AppTheme.accent.withOpacity(0.9)], begin: Alignment.topLeft, end: Alignment.bottomRight)
+                                    : LinearGradient(colors: [Colors.white.withOpacity(0.02), Colors.white.withOpacity(0.01)]),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: isSelected ? [BoxShadow(color: AppTheme.primary.withOpacity(0.18), blurRadius: 20, offset: const Offset(0, 10))] : [],
+                                border: Border.all(color: Colors.white.withOpacity(0.02)),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
+                                    size: 36,
+                                    color: isSelected ? Colors.white : Colors.white70,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(level.toUpperCase(), style: glowTextStyle(size: 16, weight: FontWeight.w800)),
+                                  const SizedBox(height: 8),
+                                  Text(enabled ? 'Unlocked' : 'Locked', style: glowTextStyle(size: 12, weight: FontWeight.w600).copyWith(color: Colors.white70)),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              );
-            },
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
         ),
 
@@ -288,12 +299,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // keep original leaderboard loader (unchanged)
+  // Keep original leaderboard loader (unchanged). If you have an implementation elsewhere, keep it.
   Future<void> _loadLeaderboard() async {
-    // This function was referenced earlier. If you have a specific implementation in another file or service,
-    // keep the original behavior. If you want me to modify SQL or ranking behavior, tell me and I'll add it.
-    // For now call the service and update local state if needed — we call quizService.fetchLeaderboard where necessary.
-    // (If you prefer this to update a saved `leaderboard` field like before, say so.)
+    // Intentionally minimal here — the UI uses quizService.fetchLeaderboard elsewhere.
+    // If you want to store the leaderboard in a local field, move the fetch here and setState.
   }
 
   Widget leaderboardTab() {
@@ -682,6 +691,15 @@ class _ParticlePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ParticlePainter oldDelegate) => true;
 }
+
+// ----------------- Utilities -----------------
+
+/// Remove default glow and scrollbars on Android / iOS so nothing visually bleeds
+class NoGlowScrollBehavior extends ScrollBehavior {
+  @override
+  Widget buildViewportChrome(BuildContext context, Widget child, AxisDirection axisDirection) => child;
+}
+
 
 
 /*import 'dart:math';
