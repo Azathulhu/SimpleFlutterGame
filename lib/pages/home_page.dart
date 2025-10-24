@@ -390,7 +390,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          const ParticleBackground(),
+          ParticleBackground(),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
