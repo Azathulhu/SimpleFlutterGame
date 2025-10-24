@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
-//
+
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 
@@ -31,19 +31,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   String username = 'Guest';
   int coins = 0;
 
-  // Tab management
   int activeIndex = 0;
   late PageController _pageController;
 
-  // button subtle breathe animation
   late AnimationController _breatheController;
   late Animation<double> _breatheAnim;
 
   @override
   void initState() {
     super.initState();
-    confettiController =
-        ConfettiController(duration: const Duration(seconds: 1));
+    confettiController = ConfettiController(duration: const Duration(seconds: 1));
 
     _pageController = PageController();
 
@@ -51,9 +48,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
-    _breatheAnim = Tween<double>(begin: 0.98, end: 1.03).animate(
-      CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut),
-    );
+    _breatheAnim =
+        Tween<double>(begin: 0.98, end: 1.03).animate(CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut));
 
     _loadUsername();
     _loadUnlocked();
@@ -77,11 +73,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Future<void> _loadUsername() async {
     final userId = auth.currentUser?.id;
     if (userId == null) return;
-    final res = await auth.supabase
-        .from('users')
-        .select('username')
-        .eq('id', userId)
-        .maybeSingle();
+    final res = await auth.supabase.from('users').select('username').eq('id', userId).maybeSingle();
     setState(() {
       username = res?['username'] ?? 'Guest';
     });
@@ -101,27 +93,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   void _onNavTap(int idx) {
     setState(() => activeIndex = idx);
-    _pageController.animateToPage(idx,
-        duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
+    _pageController.animateToPage(idx, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
   }
 
-  TextStyle glowText(double size, {FontWeight weight = FontWeight.bold}) {
+  TextStyle glowText(double size, {FontWeight weight = FontWeight.bold, Color glowColor = Colors.blueAccent}) {
     return TextStyle(
       color: Colors.white,
       fontSize: size,
       fontWeight: weight,
-      fontFamily: 'Orbitron', // add Orbitron in pubspec.yaml
+      fontFamily: 'Orbitron',
       shadows: [
-        Shadow(
-          blurRadius: 8,
-          color: Colors.white.withOpacity(0.8),
-          offset: const Offset(0, 0),
-        ),
-        Shadow(
-          blurRadius: 18,
-          color: AppTheme.accent.withOpacity(0.4),
-          offset: const Offset(0, 0),
-        ),
+        Shadow(blurRadius: 6, color: Colors.white.withOpacity(0.8), offset: const Offset(0, 0)),
+        Shadow(blurRadius: 14, color: glowColor.withOpacity(0.4), offset: const Offset(0, 0)),
       ],
     );
   }
@@ -138,10 +121,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.white.withOpacity(0.06)),
             boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8)),
+              BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 18, offset: const Offset(0, 8)),
             ],
           ),
           child: child,
@@ -150,12 +130,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // ---------------- Play Tab ----------------
   Widget playTab() {
     if (loading) return const Center(child: CircularProgressIndicator());
 
     final pageController = PageController(
-      viewportFraction: 0.55,
+      viewportFraction: 0.56,
       initialPage: levels.indexOf(selectedLevel),
     );
 
@@ -199,10 +178,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           double value = 0;
                           if (pageController.position.haveDimensions) {
                             value = pageController.page! - index;
-                            value = (1 - (value.abs() * 0.35)).clamp(0.0, 1.0);
+                            value = (1 - (value.abs() * 0.4)).clamp(0.0, 1.0);
                           } else {
-                            value =
-                                index == levels.indexOf(selectedLevel) ? 1 : 0.7;
+                            value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
                           }
                           return Transform(
                             transform: Matrix4.identity()
@@ -210,14 +188,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               ..rotateY((pageController.position.haveDimensions
                                       ? pageController.page! - index
                                       : index - levels.indexOf(selectedLevel)) *
-                                  0.2), // smoother rotation
+                                  0.25),
                             alignment: Alignment.center,
                             child: Opacity(
                               opacity: value,
                               child: Transform.scale(
                                 scale: 0.8 + (value * 0.25),
-                                child: levelCard(level, enabled,
-                                    isSelected: selectedLevel == level),
+                                child: levelCard(level, enabled, isSelected: selectedLevel == level),
                               ),
                             ),
                           );
@@ -236,20 +213,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (_) =>
-                                        QuizPage(level: selectedLevel)));
+                                    builder: (_) => QuizPage(level: selectedLevel)));
                             await _loadUnlocked();
                             await _loadCoins();
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 40, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       backgroundColor: AppTheme.primary.withOpacity(0.95),
                     ),
-                    child: Text('Start Quiz', style: glowText(16)),
+                    child: Text('Start Quiz', style: glowText(16, weight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -265,26 +239,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         gradient: isSelected
-            ? LinearGradient(
-                colors: [
-                  AppTheme.primary.withOpacity(0.95),
-                  AppTheme.accent.withOpacity(0.9)
-                ],
-              )
-            : LinearGradient(
-                colors: [
-                  Colors.white.withOpacity(0.03),
-                  Colors.white.withOpacity(0.02)
-                ],
-              ),
+            ? LinearGradient(colors: [AppTheme.primary.withOpacity(0.95), AppTheme.accent.withOpacity(0.9)])
+            : LinearGradient(colors: [Colors.white.withOpacity(0.03), Colors.white.withOpacity(0.02)]),
         borderRadius: BorderRadius.circular(20),
         boxShadow: isSelected
-            ? [
-                BoxShadow(
-                    color: AppTheme.primary.withOpacity(0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8))
-              ]
+            ? [BoxShadow(color: AppTheme.primary.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 8))]
             : [],
         border: Border.all(color: Colors.white.withOpacity(0.03)),
       ),
@@ -292,14 +251,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-              level == 'easy'
-                  ? Icons.looks_one
-                  : level == 'medium'
-                      ? Icons.looks_two
-                      : Icons.looks_3,
-              size: 34,
-              color: isSelected ? Colors.white : Colors.white70),
+          Icon(level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
+              size: 34, color: isSelected ? Colors.white : Colors.white70),
           const SizedBox(height: 12),
           Text(level.toUpperCase(), style: glowText(16)),
           const SizedBox(height: 8),
@@ -309,13 +262,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // ---------------- Leaderboard Tab ----------------
   Widget leaderboardTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: quizService.fetchLeaderboard(level: selectedLevel, limit: 20),
       builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done)
-          return const Center(child: CircularProgressIndicator());
+        if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
         final leaderboard = snap.data ?? [];
         return Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -325,9 +276,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                        child: Text('Leaderboard — ${selectedLevel.toUpperCase()}',
-                            style: glowText(18))),
+                    Expanded(child: Text('Leaderboard — ${selectedLevel.toUpperCase()}', style: glowText(18))),
                     Icon(Icons.leaderboard, color: Colors.white54),
                   ],
                 ),
@@ -338,8 +287,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     itemBuilder: (_, idx) {
                       final entry = leaderboard[idx];
                       final timeMs = entry['time_ms'] as int?;
-                      final displayTime =
-                          timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
+                      final displayTime = timeMs != null ? '${(timeMs / 1000).toStringAsFixed(2)}s' : '--';
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 8),
                         padding: const EdgeInsets.all(12),
@@ -351,15 +299,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         child: Row(
                           children: [
                             CircleAvatar(
-                                backgroundColor:
-                                    AppTheme.primary.withOpacity(0.14),
-                                child: Text('${idx + 1}',
-                                    style: glowText(14, weight: FontWeight.bold))),
+                                backgroundColor: AppTheme.primary.withOpacity(0.14),
+                                child: Text('${idx + 1}', style: glowText(14, weight: FontWeight.bold))),
                             const SizedBox(width: 12),
-                            Expanded(
-                                child: Text(
-                                    entry['users']?['username'] ?? 'Unknown',
-                                    style: glowText(16))),
+                            Expanded(child: Text(entry['users']?['username'] ?? 'Unknown', style: glowText(16))),
                             Text(displayTime, style: glowText(14, weight: FontWeight.bold)),
                           ],
                         ),
@@ -375,22 +318,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // ---------------- Shop Tab ----------------
   Widget shopTab() {
-    return ShopPage(
-      coins: coins,
-      onCoinsChanged: (newCoins) => updateCoins(newCoins),
-    );
+    return ShopPage(coins: coins, onCoinsChanged: (newCoins) => updateCoins(newCoins));
   }
 
-  // ---------------- Main Build ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          ParticleBackground(),
+          const ParticleBackground(),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -400,33 +338,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     children: [
                       Expanded(
                         child: _glassCard(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
                           child: Row(
                             children: [
                               CircleAvatar(
                                 radius: 26,
-                                backgroundColor:
-                                    AppTheme.primary.withOpacity(0.12),
-                                child: Text(
-                                    username.isNotEmpty
-                                        ? username[0].toUpperCase()
-                                        : 'G',
-                                    style: glowText(18)),
+                                backgroundColor: AppTheme.primary.withOpacity(0.12),
+                                child: Text(username.isNotEmpty ? username[0].toUpperCase() : 'G',
+                                    style: glowText(18, weight: FontWeight.bold)),
                               ),
                               const SizedBox(width: 12),
-                              Expanded(
-                                  child: Text('Hello, $username',
-                                      style: glowText(18))),
+                              Expanded(child: Text('Hello, $username', style: glowText(18))),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.monetization_on,
-                                          color: Colors.amber, size: 18),
+                                      const Icon(Icons.monetization_on, color: Colors.amber, size: 18),
                                       const SizedBox(width: 4),
-                                      Text('$coins', style: glowText(14)),
+                                      Text('$coins', style: glowText(14, weight: FontWeight.bold)),
                                     ],
                                   ),
                                   const SizedBox(height: 6),
@@ -435,14 +365,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                       await auth.signOut();
                                       if (!mounted) return;
                                       Navigator.of(context).pushAndRemoveUntil(
-                                          MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const SignInPage()),
+                                          MaterialPageRoute(builder: (_) => const SignInPage()),
                                           (route) => false);
                                     },
-                                    child: Text('Sign out',
-                                        style: glowText(12,
-                                            weight: FontWeight.w400)),
+                                    child: Text('Sign out', style: glowText(12, weight: FontWeight.w500)),
                                   ),
                                 ],
                               ),
@@ -461,47 +387,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         AnimatedSwitcher(
                             duration: const Duration(milliseconds: 650),
                             transitionBuilder: (child, anim) {
-                              final inAnim = Tween<Offset>(
-                                      begin: const Offset(0.03, 0.08),
-                                      end: Offset.zero)
-                                  .animate(
-                                      CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                              return FadeTransition(
-                                  opacity: anim,
-                                  child: SlideTransition(position: inAnim, child: child));
+                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
                             },
-                            child: SizedBox(
-                                key: ValueKey('play-$selectedLevel'),
-                                child: playTab())),
+                            child: SizedBox(key: ValueKey('play-$selectedLevel'), child: playTab())),
                         AnimatedSwitcher(
                             duration: const Duration(milliseconds: 650),
                             transitionBuilder: (child, anim) {
-                              final inAnim = Tween<Offset>(
-                                      begin: const Offset(0.03, 0.08),
-                                      end: Offset.zero)
-                                  .animate(
-                                      CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                              return FadeTransition(
-                                  opacity: anim,
-                                  child: SlideTransition(position: inAnim, child: child));
+                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
                             },
-                            child: Container(
-                                key: const ValueKey('leaderboard'),
-                                child: leaderboardTab())),
+                            child: Container(key: const ValueKey('leaderboard'), child: leaderboardTab())),
                         AnimatedSwitcher(
                             duration: const Duration(milliseconds: 650),
                             transitionBuilder: (child, anim) {
-                              final inAnim = Tween<Offset>(
-                                      begin: const Offset(0.03, 0.08),
-                                      end: Offset.zero)
-                                  .animate(
-                                      CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                              return FadeTransition(
-                                  opacity: anim,
-                                  child: SlideTransition(position: inAnim, child: child));
+                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
                             },
-                            child: Container(
-                                key: const ValueKey('shop'), child: shopTab())),
+                            child: Container(key: const ValueKey('shop'), child: shopTab())),
                       ],
                     ),
                   ),
@@ -510,15 +416,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
             ),
           ),
-          Positioned(
-              top: 10,
-              right: 8,
-              child: ConfettiWidget(
-                confettiController: confettiController,
-                blastDirectionality: BlastDirectionality.explosive,
-                shouldLoop: false,
-                colors: [AppTheme.primary, AppTheme.accent, Colors.amber],
-              )),
+          Positioned(top: 10, right: 8, child: ConfettiWidget(confettiController: confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, colors: [AppTheme.primary, AppTheme.accent, Colors.amber])),
           Positioned(
             left: 20,
             right: 20,
@@ -536,7 +434,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 }
 
-// ---------------- Floating glass nav ----------------
+// --- Floating Nav remains unchanged ---
 class _FloatingGlassNav extends StatelessWidget {
   final int activeIndex;
   final void Function(int) onTap;
@@ -549,34 +447,21 @@ class _FloatingGlassNav extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          height: 68,
+          height: 72,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withOpacity(0.04),
             borderRadius: BorderRadius.circular(34),
-            border: Border.all(color: Colors.white.withOpacity(0.02)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.14), blurRadius: 22, offset: const Offset(0, 12))],
+            border: Border.all(color: Colors.white.withOpacity(0.03)),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(3, (index) {
-              IconData icon;
-              switch (index) {
-                case 0:
-                  icon = Icons.play_arrow;
-                  break;
-                case 1:
-                  icon = Icons.leaderboard;
-                  break;
-                default:
-                  icon = Icons.store;
-              }
-              return IconButton(
-                onPressed: () => onTap(index),
-                icon: Icon(icon,
-                    color: index == activeIndex
-                        ? Colors.white
-                        : Colors.white54),
-              );
-            }),
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _NavItem(icon: Icons.play_circle_fill, label: 'Play', selected: activeIndex == 0, onTap: () => onTap(0)),
+              _NavItem(icon: Icons.leaderboard, label: 'Leaders', selected: activeIndex == 1, onTap: () => onTap(1)),
+              _NavItem(icon: Icons.store, label: 'Shop', selected: activeIndex == 2, onTap: () => onTap(2)),
+            ],
           ),
         ),
       ),
@@ -584,7 +469,89 @@ class _FloatingGlassNav extends StatelessWidget {
   }
 }
 
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final void Function() onTap;
+  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap});
 
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, color: selected ? Colors.white : Colors.white54),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 12, fontFamily: 'Orbitron', shadows: selected ? [Shadow(blurRadius: 8, color: Colors.white70, offset: Offset(0, 0))] : [])),
+      ]),
+    );
+  }
+}
+
+// --- Particle Background remains unchanged ---
+class ParticleBackground extends StatefulWidget {
+  const ParticleBackground({super.key});
+  @override
+  State<ParticleBackground> createState() => _ParticleBackgroundState();
+}
+
+class _ParticleBackgroundState extends State<ParticleBackground> with SingleTickerProviderStateMixin {
+  late AnimationController controller;
+  final random = Random();
+  final List<Offset> positions = [];
+  final List<double> sizes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    for (int i = 0; i < 120; i++) {
+      positions.add(Offset(random.nextDouble(), random.nextDouble()));
+      sizes.add(random.nextDouble() * 2.5 + 0.8);
+    }
+    controller = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) {
+        return CustomPaint(
+          painter: _ParticlePainter(positions, sizes, controller.value),
+          child: Container(),
+        );
+      },
+    );
+  }
+}
+
+class _ParticlePainter extends CustomPainter {
+  final List<Offset> positions;
+  final List<double> sizes;
+  final double progress;
+  _ParticlePainter(this.positions, this.sizes, this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white.withOpacity(0.14);
+    for (int i = 0; i < positions.length; i++) {
+      final pos = positions[i];
+      final dx = (pos.dx + progress * 0.1) % 1.0 * size.width;
+      final dy = (pos.dy + progress * 0.1) % 1.0 * size.height;
+      canvas.drawCircle(Offset(dx, dy), sizes[i], paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ParticlePainter oldDelegate) => true;
+}
 
 /*import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
