@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.initState();
     confettiController = ConfettiController(duration: const Duration(seconds: 1));
 
-    _pageController = PageController(viewportFraction: 0.6, initialPage: levels.indexOf(selectedLevel));
+    _pageController = PageController();
 
     _breatheController = AnimationController(
       vsync: this,
@@ -121,23 +121,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== Glow Text Helper ====================
+  // --- Glow text helper ---
   TextStyle glowText(double size, {FontWeight weight = FontWeight.bold}) {
     return TextStyle(
       color: Colors.white,
       fontSize: size,
       fontWeight: weight,
-      fontFamily: 'Orbitron',
+      fontFamily: 'Orbitron', // futuristic font, include in pubspec.yaml
       shadows: [
         Shadow(blurRadius: 10, color: Colors.white.withOpacity(0.8), offset: const Offset(0, 0)),
-        Shadow(blurRadius: 20, color: Colors.blueAccent.withOpacity(0.4), offset: const Offset(0, 0)),
+        Shadow(blurRadius: 20, color: Colors.blueAccent.withOpacity(0.3), offset: const Offset(0, 0)),
       ],
     );
   }
 
-  // Play Tab content
+  // Play Tab content (refined)
   Widget playTab() {
     if (loading) return const Center(child: CircularProgressIndicator());
+
+    final pageController = PageController(
+      viewportFraction: 0.56,
+      initialPage: levels.indexOf(selectedLevel),
+    );
 
     return Center(
       child: Column(
@@ -163,8 +168,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 SizedBox(
                   height: 200,
                   child: PageView.builder(
-                    controller: _pageController,
-                    physics: const BouncingScrollPhysics(),
+                    controller: pageController,
+                    physics: const BouncingScrollPhysics(), // smoother swipe
                     itemCount: levels.length,
                     onPageChanged: (idx) {
                       setState(() => selectedLevel = levels[idx]);
@@ -173,27 +178,24 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     itemBuilder: (context, index) {
                       final level = levels[index];
                       final enabled = unlocked.contains(level);
-
                       return AnimatedBuilder(
-                        animation: _pageController,
+                        animation: pageController,
                         builder: (context, child) {
                           double value = 0;
-                          if (_pageController.position.haveDimensions) {
-                            value = (_pageController.page! - index).clamp(-1, 1);
-                            value = 1 - (value.abs() * 0.4);
+                          if (pageController.position.haveDimensions) {
+                            value = pageController.page! - index;
+                            value = (1 - (value.abs() * 0.4)).clamp(0.0, 1.0); // smoother fade
                           } else {
                             value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
                           }
-
-                          // smoother rotation & peek effect
-                          final rotation = (_pageController.position.haveDimensions
-                                  ? _pageController.page! - index
-                                  : index - levels.indexOf(selectedLevel)) *
-                              0.2;
-
                           return Transform(
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, 0.001)
+                              ..rotateY((pageController.position.haveDimensions
+                                      ? pageController.page! - index
+                                      : index - levels.indexOf(selectedLevel)) *
+                                  0.25), // smaller rotation = smoother
                             alignment: Alignment.center,
-                            transform: Matrix4.identity()..setEntry(3, 2, 0.001)..rotateY(rotation),
                             child: Opacity(
                               opacity: value,
                               child: Transform.scale(
@@ -214,7 +216,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     onPressed: unlocked.contains(selectedLevel)
                         ? () async {
                             confettiController.play();
-                            await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizPage(level: selectedLevel)));
+                            await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => QuizPage(level: selectedLevel)));
                             await _loadUnlocked();
                             await _loadCoins();
                           }
@@ -252,11 +257,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
-            size: 34,
-            color: isSelected ? Colors.white : Colors.white70,
-          ),
+          Icon(level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
+              size: 34, color: isSelected ? Colors.white : Colors.white70),
           const SizedBox(height: 12),
           Text(level.toUpperCase(), style: glowText(16)),
           const SizedBox(height: 8),
@@ -281,10 +283,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Row(
                   children: [
                     Expanded(
-                        child: Text(
-                      'Leaderboard — ${selectedLevel.toUpperCase()}',
-                      style: glowText(18),
-                    )),
+                        child: Text('Leaderboard — ${selectedLevel.toUpperCase()}', style: glowText(18))),
                     Icon(Icons.leaderboard, color: Colors.white54),
                   ],
                 ),
@@ -306,9 +305,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                         child: Row(
                           children: [
-                            CircleAvatar(
-                                backgroundColor: AppTheme.primary.withOpacity(0.14),
-                                child: Text('${idx + 1}', style: glowText(14, weight: FontWeight.bold))),
+                            CircleAvatar(backgroundColor: AppTheme.primary.withOpacity(0.14), child: Text('${idx + 1}', style: glowText(14, weight: FontWeight.bold))),
                             const SizedBox(width: 12),
                             Expanded(child: Text(entry['users']?['username'] ?? 'Unknown', style: glowText(16))),
                             Text(displayTime, style: glowText(14, weight: FontWeight.bold)),
@@ -353,8 +350,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               CircleAvatar(
                                 radius: 26,
                                 backgroundColor: AppTheme.primary.withOpacity(0.12),
-                                child: Text(username.isNotEmpty ? username[0].toUpperCase() : 'G',
-                                    style: glowText(18, weight: FontWeight.bold)),
+                                child: Text(username.isNotEmpty ? username[0].toUpperCase() : 'G', style: glowText(16)),
                               ),
                               const SizedBox(width: 12),
                               Expanded(child: Text('Hello, $username', style: glowText(18))),
@@ -373,8 +369,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     onTap: () async {
                                       await auth.signOut();
                                       if (!mounted) return;
-                                      Navigator.of(context).pushAndRemoveUntil(
-                                          MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
+                                      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
                                     },
                                     child: Text('Sign out', style: glowText(12, weight: FontWeight.w500)),
                                   ),
@@ -393,35 +388,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       onPageChanged: (idx) => setState(() => activeIndex = idx),
                       children: [
                         AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 650),
-                          transitionBuilder: (child, anim) {
-                            final inAnim =
-                                Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero).animate(
-                                    CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                            return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
-                          },
-                          child: SizedBox(key: ValueKey('play-$selectedLevel'), child: playTab()),
-                        ),
+                            duration: const Duration(milliseconds: 650),
+                            transitionBuilder: (child, anim) {
+                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
+                            },
+                            child: SizedBox(key: ValueKey('play-$selectedLevel'), child: playTab())),
                         AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 650),
-                          transitionBuilder: (child, anim) {
-                            final inAnim =
-                                Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero).animate(
-                                    CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                            return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
-                          },
-                          child: Container(key: const ValueKey('leaderboard'), child: leaderboardTab()),
-                        ),
+                            duration: const Duration(milliseconds: 650),
+                            transitionBuilder: (child, anim) {
+                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
+                            },
+                            child: Container(key: const ValueKey('leaderboard'), child: leaderboardTab())),
                         AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 650),
-                          transitionBuilder: (child, anim) {
-                            final inAnim =
-                                Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero).animate(
-                                    CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                            return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
-                          },
-                          child: Container(key: const ValueKey('shop'), child: shopTab()),
-                        ),
+                            duration: const Duration(milliseconds: 650),
+                            transitionBuilder: (child, anim) {
+                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
+                            },
+                            child: Container(key: const ValueKey('shop'), child: shopTab())),
                       ],
                     ),
                   ),
@@ -448,6 +437,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 }
 
+// --------- Floating nav, particle background etc remain unchanged ---------
 
 /*import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
