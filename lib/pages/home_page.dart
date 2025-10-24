@@ -100,6 +100,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _pageController.animateToPage(idx, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
   }
 
+  // ---------- Glow Text Helper ----------
+  TextStyle glowText(double size, {FontWeight weight = FontWeight.bold}) {
+    return TextStyle(
+      color: Colors.white,
+      fontSize: size,
+      fontWeight: weight,
+      fontFamily: 'Orbitron', // make sure to add Orbitron font in pubspec.yaml
+      shadows: [
+        Shadow(
+          blurRadius: 10,
+          color: Colors.white.withOpacity(0.8),
+          offset: const Offset(0, 0),
+        ),
+        Shadow(
+          blurRadius: 20,
+          color: Colors.blueAccent.withOpacity(0.4),
+          offset: const Offset(0, 0),
+        ),
+      ],
+    );
+  }
+
   Widget _glassCard({required Widget child, EdgeInsets? padding}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -121,21 +143,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // --- Glow text helper ---
-  TextStyle glowText(double size, {FontWeight weight = FontWeight.bold}) {
-    return TextStyle(
-      color: Colors.white,
-      fontSize: size,
-      fontWeight: weight,
-      fontFamily: 'Orbitron', // futuristic font, include in pubspec.yaml
-      shadows: [
-        Shadow(blurRadius: 10, color: Colors.white.withOpacity(0.8), offset: const Offset(0, 0)),
-        Shadow(blurRadius: 20, color: Colors.blueAccent.withOpacity(0.3), offset: const Offset(0, 0)),
-      ],
-    );
-  }
-
-  // Play Tab content (refined)
+  // Play Tab content
   Widget playTab() {
     if (loading) return const Center(child: CircularProgressIndicator());
 
@@ -169,7 +177,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   height: 200,
                   child: PageView.builder(
                     controller: pageController,
-                    physics: const BouncingScrollPhysics(), // smoother swipe
+                    physics: const BouncingScrollPhysics(),
                     itemCount: levels.length,
                     onPageChanged: (idx) {
                       setState(() => selectedLevel = levels[idx]);
@@ -184,7 +192,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           double value = 0;
                           if (pageController.position.haveDimensions) {
                             value = pageController.page! - index;
-                            value = (1 - (value.abs() * 0.4)).clamp(0.0, 1.0); // smoother fade
+                            value = (1 - (value.abs() * 0.4)).clamp(0.0, 1.0);
                           } else {
                             value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
                           }
@@ -194,7 +202,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               ..rotateY((pageController.position.haveDimensions
                                       ? pageController.page! - index
                                       : index - levels.indexOf(selectedLevel)) *
-                                  0.25), // smaller rotation = smoother
+                                  0.25),
                             alignment: Alignment.center,
                             child: Opacity(
                               opacity: value,
@@ -245,8 +253,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         gradient: isSelected
-            ? LinearGradient(colors: [AppTheme.primary.withOpacity(0.95), AppTheme.accent.withOpacity(0.9)])
-            : LinearGradient(colors: [Colors.white.withOpacity(0.03), Colors.white.withOpacity(0.02)]),
+            ? LinearGradient(
+                colors: [AppTheme.primary.withOpacity(0.95), AppTheme.accent.withOpacity(0.9)])
+            : LinearGradient(
+                colors: [Colors.white.withOpacity(0.03), Colors.white.withOpacity(0.02)]),
         borderRadius: BorderRadius.circular(20),
         boxShadow: isSelected
             ? [BoxShadow(color: AppTheme.primary.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 8))]
@@ -257,8 +267,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
-              size: 34, color: isSelected ? Colors.white : Colors.white70),
+          Icon(
+              level == 'easy'
+                  ? Icons.looks_one
+                  : level == 'medium'
+                      ? Icons.looks_two
+                      : Icons.looks_3,
+              size: 34,
+              color: isSelected ? Colors.white : Colors.white70),
           const SizedBox(height: 12),
           Text(level.toUpperCase(), style: glowText(16)),
           const SizedBox(height: 8),
@@ -305,7 +321,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                         child: Row(
                           children: [
-                            CircleAvatar(backgroundColor: AppTheme.primary.withOpacity(0.14), child: Text('${idx + 1}', style: glowText(14, weight: FontWeight.bold))),
+                            CircleAvatar(
+                                backgroundColor: AppTheme.primary.withOpacity(0.14),
+                                child: Text('${idx + 1}', style: glowText(14, weight: FontWeight.bold))),
                             const SizedBox(width: 12),
                             Expanded(child: Text(entry['users']?['username'] ?? 'Unknown', style: glowText(16))),
                             Text(displayTime, style: glowText(14, weight: FontWeight.bold)),
@@ -327,7 +345,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return ShopPage(coins: coins, onCoinsChanged: (newCoins) => updateCoins(newCoins));
   }
 
-  // main build
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -350,7 +367,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               CircleAvatar(
                                 radius: 26,
                                 backgroundColor: AppTheme.primary.withOpacity(0.12),
-                                child: Text(username.isNotEmpty ? username[0].toUpperCase() : 'G', style: glowText(16)),
+                                child: Text(username.isNotEmpty ? username[0].toUpperCase() : 'G',
+                                    style: glowText(18)),
                               ),
                               const SizedBox(width: 12),
                               Expanded(child: Text('Hello, $username', style: glowText(18))),
@@ -369,7 +387,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     onTap: () async {
                                       await auth.signOut();
                                       if (!mounted) return;
-                                      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
+                                      Navigator.of(context).pushAndRemoveUntil(
+                                          MaterialPageRoute(builder: (_) => const SignInPage()),
+                                          (route) => false);
                                     },
                                     child: Text('Sign out', style: glowText(12, weight: FontWeight.w500)),
                                   ),
@@ -419,7 +439,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
             ),
           ),
-          Positioned(top: 10, right: 8, child: ConfettiWidget(confettiController: confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, colors: [AppTheme.primary, AppTheme.accent, Colors.amber])),
+          Positioned(
+              top: 10,
+              right: 8,
+              child: ConfettiWidget(
+                  confettiController: confettiController,
+                  blastDirectionality: BlastDirectionality.explosive,
+                  shouldLoop: false,
+                  colors: [AppTheme.primary, AppTheme.accent, Colors.amber])),
           Positioned(
             left: 20,
             right: 20,
@@ -436,6 +463,56 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 }
+
+// ---------- Floating glass nav (curved blob style) ----------
+class _FloatingGlassNav extends StatelessWidget {
+  final int activeIndex;
+  final void Function(int) onTap;
+  const _FloatingGlassNav({required this.activeIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(34),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          height: 72,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(34),
+            border: Border.all(color: Colors.white.withOpacity(0.04)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(3, (idx) {
+              final active = idx == activeIndex;
+              final icon = idx == 0
+                  ? Icons.play_circle_fill
+                  : idx == 1
+                      ? Icons.leaderboard
+                      : Icons.storefront;
+              return IconButton(
+                  onPressed: () => onTap(idx),
+                  icon: Icon(icon, color: active ? AppTheme.primary : Colors.white70));
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Dummy particle background for completeness
+class ParticleBackground extends StatelessWidget {
+  const ParticleBackground({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Container(color: Colors.black87);
+  }
+}
+
 
 // --------- Floating nav, particle background etc remain unchanged ---------
 
