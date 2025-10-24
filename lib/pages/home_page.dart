@@ -157,16 +157,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       initialPage: levels.indexOf(selectedLevel),
     );
   
-    // Track the current page for smooth animation
-    double currentPage = levels.indexOf(selectedLevel).toDouble();
-  
-    // Add listener to update currentPage
-    pageController.addListener(() {
-      setState(() {
-        currentPage = pageController.page ?? currentPage;
-      });
-    });
-  
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -188,7 +178,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 12),
               SizedBox(
-                height: 200,
+                height: 220,
                 child: PageView.builder(
                   controller: pageController,
                   physics: const BouncingScrollPhysics(),
@@ -198,30 +188,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     _loadUnlocked();
                   },
                   itemBuilder: (context, index) {
-                    final level = levels[index];
-                    final enabled = unlocked.contains(level);
+                    return AnimatedBuilder(
+                      animation: pageController,
+                      builder: (context, child) {
+                        double pageOffset = 0;
+                        try {
+                          pageOffset = pageController.page ?? pageController.initialPage.toDouble();
+                        } catch (_) {
+                          pageOffset = pageController.initialPage.toDouble();
+                        }
   
-                    final distance = (currentPage - index).clamp(-1.0, 1.0);
-                    final scale = 1 - (distance.abs() * 0.25); // Smooth scaling
-                    final rotationY = distance * 0.35; // Slight tilt
-                    final opacity = 0.5 + (scale * 0.5); // Smooth fading
+                        final distance = (pageOffset - index).clamp(-1.0, 1.0);
+                        final scale = 1 - distance.abs() * 0.25;
+                        final rotationY = distance * 0.35;
+                        final opacity = 0.5 + scale * 0.5;
   
-                    return Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001)
-                        ..rotateY(rotationY),
-                      child: Opacity(
-                        opacity: opacity,
-                        child: Transform.scale(
-                          scale: scale,
-                          child: levelCard(
-                            level,
-                            enabled,
-                            isSelected: selectedLevel == level,
+                        return Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.identity()
+                            ..setEntry(3, 2, 0.001)
+                            ..rotateY(rotationY),
+                          child: Opacity(
+                            opacity: opacity,
+                            child: Transform.scale(
+                              scale: scale,
+                              child: levelCard(
+                                levels[index],
+                                unlocked.contains(levels[index]),
+                                isSelected: selectedLevel == levels[index],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
                 ),
