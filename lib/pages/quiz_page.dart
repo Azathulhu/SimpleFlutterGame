@@ -10,9 +10,7 @@ const List<String> levelOrder = ['easy', 'medium', 'hard'];
 
 class QuizPage extends StatefulWidget {
   final String level;
-  final String? backgroundUrl; // optional background from shop
-
-  const QuizPage({required this.level, this.backgroundUrl, super.key});
+  const QuizPage({required this.level, super.key});
 
   @override
   State<QuizPage> createState() => _QuizPageState();
@@ -37,15 +35,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   Duration timerDuration = const Duration(seconds: 60);
 
   List<Map<String, dynamic>> latestLeaderboard = [];
-
-  String? backgroundUrl; // current background
+  String? equippedBackgroundUrl;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 1));
     _stopwatch = Stopwatch();
-    backgroundUrl = widget.backgroundUrl;
+    _loadEquippedBackground();
     _load();
   }
 
@@ -57,11 +54,26 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
-  // Callback from ShopPage to update background dynamically
-  void updateBackground(String? url) {
-    setState(() {
-      backgroundUrl = url;
-    });
+  Future<void> _loadEquippedBackground() async {
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    final res = await Supabase.instance.client
+        .from('user_items')
+        .select('shop_items(asset_url)')
+        .eq('user_id', user.id)
+        .eq('equipped', true)
+        .maybeSingle();
+
+    if (res != null) {
+      setState(() {
+        equippedBackgroundUrl = res['shop_items']['asset_url'];
+      });
+    } else {
+      setState(() {
+        equippedBackgroundUrl = null;
+      });
+    }
   }
 
   Future<void> _load() async {
@@ -178,7 +190,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         );
         await auth.addCoins(score);
 
-        // Unlock current and next level
+        // Unlock levels
         await auth.unlockLevel(widget.level);
         final idx = levelOrder.indexOf(widget.level);
         if (idx < levelOrder.length - 1) {
@@ -297,109 +309,107 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     final q = questions[currentIndex];
     final progress = currentIndex / questions.length;
 
-    return Stack(
-      children: [
-        // Render equipped background if available
-        if (backgroundUrl != null)
-          Positioned.fill(
-            child: Image.network(
-              backgroundUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
-            ),
+    return AnimatedGradientBackground(
+      child: GlobalTapRipple(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            title: Text('${widget.level.toUpperCase()} Quiz'),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
           ),
-        AnimatedGradientBackground(
-          child: GlobalTapRipple(
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              appBar: AppBar(
-                title: Text('${widget.level.toUpperCase()} Quiz'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: LinearProgressIndicator(
-                                value: healthPercent,
-                                minHeight: 12,
-                                backgroundColor: Colors.grey.shade300,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              '${((timerDuration.inMilliseconds * healthPercent) / 1000).clamp(0, timerDuration.inMilliseconds / 1000).toStringAsFixed(1)}s',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        LinearProgressIndicator(value: progress, minHeight: 8),
-                        const SizedBox(height: 12),
-                        Card(
-                          key: ValueKey(q.id),
-                          elevation: 8,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(18),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Question ${currentIndex + 1}/${questions.length}',
-                                    style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                                const SizedBox(height: 8),
-                                Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 16),
-                                ...q.options.map((opt) => Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 6),
-                                      child: ElevatedButton(
-                                        onPressed: () => _answer(opt),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.black87,
-                                          elevation: 2,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                        ),
-                                        child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
-                                      ),
-                                    )),
-                              ],
+          body: Container(
+            decoration: BoxDecoration(
+              image: equippedBackgroundUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(equippedBackgroundUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: healthPercent,
+                              minHeight: 12,
+                              backgroundColor: Colors.grey.shade300,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${((timerDuration.inMilliseconds * healthPercent) / 1000).clamp(0, timerDuration.inMilliseconds / 1000).toStringAsFixed(1)}s',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(value: progress, minHeight: 8),
+                      const SizedBox(height: 12),
+                      Card(
+                        key: ValueKey(q.id),
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Question ${currentIndex + 1}/${questions.length}',
+                                  style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                              const SizedBox(height: 8),
+                              Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 16),
+                              ...q.options.map((opt) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: ElevatedButton(
+                                      onPressed: () => _answer(opt),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: Colors.black87,
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                      ),
+                                      child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
+                                    ),
+                                  )),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        Text('Score: $score', style: const TextStyle(fontSize: 16)),
-                        const SizedBox(height: 12),
-                        ConfettiWidget(
-                          confettiController: _confettiController,
-                          blastDirectionality: BlastDirectionality.explosive,
-                          shouldLoop: false,
-                          colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
-                          emissionFrequency: 0.05,
-                          numberOfParticles: 15,
-                          gravity: 0.3,
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Score: $score', style: const TextStyle(fontSize: 16)),
+                      const SizedBox(height: 12),
+                      ConfettiWidget(
+                        confettiController: _confettiController,
+                        blastDirectionality: BlastDirectionality.explosive,
+                        shouldLoop: false,
+                        colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+                        emissionFrequency: 0.05,
+                        numberOfParticles: 15,
+                        gravity: 0.3,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
+
 
 /*import 'dart:async';
 import 'package:confetti/confetti.dart';
