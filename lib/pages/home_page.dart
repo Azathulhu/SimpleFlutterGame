@@ -31,9 +31,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   String username = 'Guest';
   int coins = 0;
 
+  // Tab management
   int activeIndex = 0;
   late PageController _pageController;
 
+  // button subtle breathe animation
   late AnimationController _breatheController;
   late Animation<double> _breatheAnim;
 
@@ -42,7 +44,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.initState();
     confettiController = ConfettiController(duration: const Duration(seconds: 1));
 
-    _pageController = PageController();
+    _pageController = PageController(viewportFraction: 0.6, initialPage: levels.indexOf(selectedLevel));
 
     _breatheController = AnimationController(
       vsync: this,
@@ -89,24 +91,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     });
   }
 
+  // Public update coins for ShopPage
   void updateCoins(int newCoins) => setState(() => coins = newCoins);
 
+  // simple helper for nav tap
   void _onNavTap(int idx) {
     setState(() => activeIndex = idx);
     _pageController.animateToPage(idx, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
-  }
-
-  TextStyle glowText(double size, {FontWeight weight = FontWeight.bold, Color glowColor = Colors.blueAccent}) {
-    return TextStyle(
-      color: Colors.white,
-      fontSize: size,
-      fontWeight: weight,
-      fontFamily: 'Orbitron',
-      shadows: [
-        Shadow(blurRadius: 6, color: Colors.white.withOpacity(0.8), offset: const Offset(0, 0)),
-        Shadow(blurRadius: 14, color: glowColor.withOpacity(0.4), offset: const Offset(0, 0)),
-      ],
-    );
   }
 
   Widget _glassCard({required Widget child, EdgeInsets? padding}) {
@@ -130,13 +121,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
+  // ==================== Glow Text Helper ====================
+  TextStyle glowText(double size, {FontWeight weight = FontWeight.bold}) {
+    return TextStyle(
+      color: Colors.white,
+      fontSize: size,
+      fontWeight: weight,
+      fontFamily: 'Orbitron',
+      shadows: [
+        Shadow(blurRadius: 10, color: Colors.white.withOpacity(0.8), offset: const Offset(0, 0)),
+        Shadow(blurRadius: 20, color: Colors.blueAccent.withOpacity(0.4), offset: const Offset(0, 0)),
+      ],
+    );
+  }
+
+  // Play Tab content
   Widget playTab() {
     if (loading) return const Center(child: CircularProgressIndicator());
-
-    final pageController = PageController(
-      viewportFraction: 0.56,
-      initialPage: levels.indexOf(selectedLevel),
-    );
 
     return Center(
       child: Column(
@@ -162,9 +163,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 SizedBox(
                   height: 200,
                   child: PageView.builder(
-                    controller: pageController,
-                    itemCount: levels.length,
+                    controller: _pageController,
                     physics: const BouncingScrollPhysics(),
+                    itemCount: levels.length,
                     onPageChanged: (idx) {
                       setState(() => selectedLevel = levels[idx]);
                       _loadUnlocked();
@@ -172,24 +173,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     itemBuilder: (context, index) {
                       final level = levels[index];
                       final enabled = unlocked.contains(level);
+
                       return AnimatedBuilder(
-                        animation: pageController,
+                        animation: _pageController,
                         builder: (context, child) {
                           double value = 0;
-                          if (pageController.position.haveDimensions) {
-                            value = pageController.page! - index;
-                            value = (1 - (value.abs() * 0.4)).clamp(0.0, 1.0);
+                          if (_pageController.position.haveDimensions) {
+                            value = (_pageController.page! - index).clamp(-1, 1);
+                            value = 1 - (value.abs() * 0.4);
                           } else {
                             value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
                           }
+
+                          // smoother rotation & peek effect
+                          final rotation = (_pageController.position.haveDimensions
+                                  ? _pageController.page! - index
+                                  : index - levels.indexOf(selectedLevel)) *
+                              0.2;
+
                           return Transform(
-                            transform: Matrix4.identity()
-                              ..setEntry(3, 2, 0.001)
-                              ..rotateY((pageController.position.haveDimensions
-                                      ? pageController.page! - index
-                                      : index - levels.indexOf(selectedLevel)) *
-                                  0.25),
                             alignment: Alignment.center,
+                            transform: Matrix4.identity()..setEntry(3, 2, 0.001)..rotateY(rotation),
                             child: Opacity(
                               opacity: value,
                               child: Transform.scale(
@@ -210,10 +214,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     onPressed: unlocked.contains(selectedLevel)
                         ? () async {
                             confettiController.play();
-                            await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => QuizPage(level: selectedLevel)));
+                            await Navigator.push(context, MaterialPageRoute(builder: (_) => QuizPage(level: selectedLevel)));
                             await _loadUnlocked();
                             await _loadCoins();
                           }
@@ -251,8 +252,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
-              size: 34, color: isSelected ? Colors.white : Colors.white70),
+          Icon(
+            level == 'easy' ? Icons.looks_one : level == 'medium' ? Icons.looks_two : Icons.looks_3,
+            size: 34,
+            color: isSelected ? Colors.white : Colors.white70,
+          ),
           const SizedBox(height: 12),
           Text(level.toUpperCase(), style: glowText(16)),
           const SizedBox(height: 8),
@@ -276,7 +280,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text('Leaderboard — ${selectedLevel.toUpperCase()}', style: glowText(18))),
+                    Expanded(
+                        child: Text(
+                      'Leaderboard — ${selectedLevel.toUpperCase()}',
+                      style: glowText(18),
+                    )),
                     Icon(Icons.leaderboard, color: Colors.white54),
                   ],
                 ),
@@ -322,6 +330,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return ShopPage(coins: coins, onCoinsChanged: (newCoins) => updateCoins(newCoins));
   }
 
+  // main build
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -365,8 +374,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                       await auth.signOut();
                                       if (!mounted) return;
                                       Navigator.of(context).pushAndRemoveUntil(
-                                          MaterialPageRoute(builder: (_) => const SignInPage()),
-                                          (route) => false);
+                                          MaterialPageRoute(builder: (_) => const SignInPage()), (route) => false);
                                     },
                                     child: Text('Sign out', style: glowText(12, weight: FontWeight.w500)),
                                   ),
@@ -385,29 +393,35 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       onPageChanged: (idx) => setState(() => activeIndex = idx),
                       children: [
                         AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 650),
-                            transitionBuilder: (child, anim) {
-                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
-                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
-                            },
-                            child: SizedBox(key: ValueKey('play-$selectedLevel'), child: playTab())),
+                          duration: const Duration(milliseconds: 650),
+                          transitionBuilder: (child, anim) {
+                            final inAnim =
+                                Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero).animate(
+                                    CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                            return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
+                          },
+                          child: SizedBox(key: ValueKey('play-$selectedLevel'), child: playTab()),
+                        ),
                         AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 650),
-                            transitionBuilder: (child, anim) {
-                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
-                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
-                            },
-                            child: Container(key: const ValueKey('leaderboard'), child: leaderboardTab())),
+                          duration: const Duration(milliseconds: 650),
+                          transitionBuilder: (child, anim) {
+                            final inAnim =
+                                Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero).animate(
+                                    CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                            return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
+                          },
+                          child: Container(key: const ValueKey('leaderboard'), child: leaderboardTab()),
+                        ),
                         AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 650),
-                            transitionBuilder: (child, anim) {
-                              final inAnim = Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero)
-                                  .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
-                              return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
-                            },
-                            child: Container(key: const ValueKey('shop'), child: shopTab())),
+                          duration: const Duration(milliseconds: 650),
+                          transitionBuilder: (child, anim) {
+                            final inAnim =
+                                Tween<Offset>(begin: const Offset(0.03, 0.08), end: Offset.zero).animate(
+                                    CurvedAnimation(parent: anim, curve: Curves.easeOut));
+                            return FadeTransition(opacity: anim, child: SlideTransition(position: inAnim, child: child));
+                          },
+                          child: Container(key: const ValueKey('shop'), child: shopTab()),
+                        ),
                       ],
                     ),
                   ),
@@ -434,124 +448,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 }
 
-// --- Floating Nav remains unchanged ---
-class _FloatingGlassNav extends StatelessWidget {
-  final int activeIndex;
-  final void Function(int) onTap;
-  const _FloatingGlassNav({required this.activeIndex, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(34),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          height: 72,
-          padding: const EdgeInsets.symmetric(horizontal: 22),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(34),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.14), blurRadius: 22, offset: const Offset(0, 12))],
-            border: Border.all(color: Colors.white.withOpacity(0.03)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _NavItem(icon: Icons.play_circle_fill, label: 'Play', selected: activeIndex == 0, onTap: () => onTap(0)),
-              _NavItem(icon: Icons.leaderboard, label: 'Leaders', selected: activeIndex == 1, onTap: () => onTap(1)),
-              _NavItem(icon: Icons.store, label: 'Shop', selected: activeIndex == 2, onTap: () => onTap(2)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final void Function() onTap;
-  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, color: selected ? Colors.white : Colors.white54),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 12, fontFamily: 'Orbitron', shadows: selected ? [Shadow(blurRadius: 8, color: Colors.white70, offset: Offset(0, 0))] : [])),
-      ]),
-    );
-  }
-}
-
-// --- Particle Background remains unchanged ---
-class ParticleBackground extends StatefulWidget {
-  const ParticleBackground({super.key});
-  @override
-  State<ParticleBackground> createState() => _ParticleBackgroundState();
-}
-
-class _ParticleBackgroundState extends State<ParticleBackground> with SingleTickerProviderStateMixin {
-  late AnimationController controller;
-  final random = Random();
-  final List<Offset> positions = [];
-  final List<double> sizes = [];
-
-  @override
-  void initState() {
-    super.initState();
-    for (int i = 0; i < 120; i++) {
-      positions.add(Offset(random.nextDouble(), random.nextDouble()));
-      sizes.add(random.nextDouble() * 2.5 + 0.8);
-    }
-    controller = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat();
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (_, __) {
-        return CustomPaint(
-          painter: _ParticlePainter(positions, sizes, controller.value),
-          child: Container(),
-        );
-      },
-    );
-  }
-}
-
-class _ParticlePainter extends CustomPainter {
-  final List<Offset> positions;
-  final List<double> sizes;
-  final double progress;
-  _ParticlePainter(this.positions, this.sizes, this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withOpacity(0.14);
-    for (int i = 0; i < positions.length; i++) {
-      final pos = positions[i];
-      final dx = (pos.dx + progress * 0.1) % 1.0 * size.width;
-      final dy = (pos.dy + progress * 0.1) % 1.0 * size.height;
-      canvas.drawCircle(Offset(dx, dy), sizes[i], paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ParticlePainter oldDelegate) => true;
-}
 
 /*import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
