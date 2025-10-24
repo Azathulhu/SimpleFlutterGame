@@ -398,37 +398,43 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                           fontWeight: FontWeight.bold,
                                           color: Colors.white.withOpacity(0.95)))),
                               Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                      const Icon(Icons.monetization_on, color: Colors.amber, size: 18),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '$coins',
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '$coins',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        shadows: [
+                                          Shadow(
+                                            blurRadius: 8.0,
+                                            color: Colors.white.withOpacity(0.8),
+                                            offset: Offset(0, 0),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    InkWell(
+                                      onTap: () async {
+                                        await auth.signOut();
+                                        if (!mounted) return;
+                                        Navigator.of(context).pushAndRemoveUntil(
+                                          MaterialPageRoute(builder: (_) => const SignInPage()),
+                                          (route) => false,
+                                        );
+                                      },
+                                      child: Text(
+                                        'Sign out',
                                         style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white.withOpacity(0.95), // remove const here
+                                          color: Colors.white.withOpacity(0.7),
+                                          fontSize: 12,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  InkWell(
-                                    onTap: () async {
-                                      await auth.signOut();
-                                      if (!mounted) return;
-                                      Navigator.of(context).pushAndRemoveUntil(
-                                          MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const SignInPage()),
-                                          (route) => false);
-                                    },
-                                    child: Text('Sign out',
-                                        style: TextStyle(
-                                            color: Colors.white.withOpacity(0.7),
-                                            fontSize: 12)),
-                                  ),
-                                ],
-                              ),
+                                    ),
+                                  ],
+                                ),
                             ],
                           ),
                         ),
