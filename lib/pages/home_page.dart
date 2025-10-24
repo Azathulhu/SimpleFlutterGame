@@ -400,6 +400,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
+                                    const Icon(Icons.monetization_on, color: Colors.green, size: 18),
+                                    const SizedBox(width: 4),
                                     Text(
                                       '$coins',
                                       style: TextStyle(
