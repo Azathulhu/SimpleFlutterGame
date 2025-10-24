@@ -99,6 +99,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         curve: Curves.easeInOutCubic);
   }
 
+  Widget _glowingText(String text,
+      {double fontSize = 14,
+      FontWeight fontWeight = FontWeight.normal,
+      double opacity = 1.0}) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: Colors.white.withOpacity(opacity),
+        shadows: [
+          Shadow(
+              blurRadius: 10,
+              color: Colors.white.withOpacity(0.8),
+              offset: const Offset(0, 0)),
+          Shadow(
+              blurRadius: 20,
+              color: Colors.white.withOpacity(0.5),
+              offset: const Offset(0, 0)),
+        ],
+      ),
+    );
+  }
+
   Widget _glassCard({required Widget child, EdgeInsets? padding}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -129,137 +153,95 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     if (loading) return const Center(child: CircularProgressIndicator());
     final pageController =
         PageController(viewportFraction: 0.56, initialPage: levels.indexOf(selectedLevel));
-    return Center( // <-- center the carousel vertically
-      child: Column(
-        mainAxisSize: MainAxisSize.min, // ensures it centers properly
-        children: [
-          _glassCard(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Choose difficulty',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.blueAccent.withOpacity(0.6),
-                              blurRadius: 8,
-                              offset: const Offset(0, 0),
-                            ),
-                            Shadow(
-                              color: Colors.white.withOpacity(0.4),
-                              blurRadius: 4,
-                              offset: const Offset(0, 0),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Icon(Icons.settings,
-                        color: Colors.white.withOpacity(0.65), shadows: [
-                          Shadow(
-                            color: Colors.white.withOpacity(0.5),
-                            blurRadius: 4,
-                          )
-                        ]),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 200,
-                  child: PageView.builder(
-                    controller: pageController,
-                    itemCount: levels.length,
-                    onPageChanged: (idx) {
-                      setState(() => selectedLevel = levels[idx]);
-                      _loadUnlocked();
-                    },
-                    itemBuilder: (context, index) {
-                      final level = levels[index];
-                      final enabled = unlocked.contains(level);
-                      return AnimatedBuilder(
-                        animation: pageController,
-                        builder: (context, child) {
-                          double value = 0;
-                          if (pageController.position.haveDimensions) {
-                            value = pageController.page! - index;
-                            value = (1 - (value.abs() * 0.45)).clamp(0.0, 1.0);
-                          } else {
-                            value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
-                          }
-                          return Transform(
-                            transform: Matrix4.identity()
-                              ..setEntry(3, 2, 0.001)
-                              ..rotateY((pageController.position.haveDimensions
-                                      ? pageController.page! - index
-                                      : index - levels.indexOf(selectedLevel)) *
-                                  0.45),
-                            alignment: Alignment.center,
-                            child: Opacity(
-                              opacity: value,
-                              child: Transform.scale(
-                                scale: 0.8 + (value * 0.25),
-                                child: levelCard(level, enabled,
-                                    isSelected: selectedLevel == level),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center, // Center the carousel vertically
+      children: [
+        _glassCard(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _glowingText('Choose difficulty',
+                        fontSize: 18, fontWeight: FontWeight.w700),
                   ),
+                  Icon(Icons.settings, color: Colors.white.withOpacity(0.65)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 200,
+                child: PageView.builder(
+                  controller: pageController,
+                  itemCount: levels.length,
+                  onPageChanged: (idx) {
+                    setState(() => selectedLevel = levels[idx]);
+                    _loadUnlocked();
+                  },
+                  itemBuilder: (context, index) {
+                    final level = levels[index];
+                    final enabled = unlocked.contains(level);
+                    return AnimatedBuilder(
+                      animation: pageController,
+                      builder: (context, child) {
+                        double value = 0;
+                        if (pageController.position.haveDimensions) {
+                          value = pageController.page! - index;
+                          value = (1 - (value.abs() * 0.45)).clamp(0.0, 1.0);
+                        } else {
+                          value = index == levels.indexOf(selectedLevel) ? 1 : 0.7;
+                        }
+                        return Transform(
+                          transform: Matrix4.identity()
+                            ..setEntry(3, 2, 0.001)
+                            ..rotateY((pageController.position.haveDimensions
+                                    ? pageController.page! - index
+                                    : index - levels.indexOf(selectedLevel)) *
+                                0.45),
+                          alignment: Alignment.center,
+                          child: Opacity(
+                            opacity: value,
+                            child: Transform.scale(
+                              scale: 0.8 + (value * 0.25),
+                              child: levelCard(level, enabled, isSelected: selectedLevel == level),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
-                const SizedBox(height: 14),
-                ScaleTransition(
-                  scale: _breatheAnim,
-                  child: ElevatedButton(
-                    onPressed: unlocked.contains(selectedLevel)
-                        ? () async {
-                            confettiController.play();
-                            await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        QuizPage(level: selectedLevel)));
-                            await _loadUnlocked();
-                            await _loadCoins();
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      backgroundColor: AppTheme.primary.withOpacity(0.95),
-                    ),
-                    child: const Text('Start Quiz',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.blueAccent,
-                              blurRadius: 6,
-                            ),
-                            Shadow(
-                              color: Colors.white24,
-                              blurRadius: 4,
-                            ),
-                          ],
-                        )),
+              ),
+              const SizedBox(height: 14),
+              ScaleTransition(
+                scale: _breatheAnim,
+                child: ElevatedButton(
+                  onPressed: unlocked.contains(selectedLevel)
+                      ? () async {
+                          confettiController.play();
+                          await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => QuizPage(level: selectedLevel)));
+                          await _loadUnlocked();
+                          await _loadCoins();
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    backgroundColor: AppTheme.primary.withOpacity(0.95),
                   ),
+                  child: _glowingText('Start Quiz', fontWeight: FontWeight.bold),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -291,14 +273,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               size: 34,
               color: isSelected ? Colors.white : Colors.white70),
           const SizedBox(height: 12),
-          Text(level.toUpperCase(),
-              style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
-                  fontWeight: FontWeight.bold)),
+          _glowingText(level.toUpperCase(),
+              fontWeight: FontWeight.bold,
+              opacity: isSelected ? 1 : 0.85),
           const SizedBox(height: 8),
-          Text(enabled ? 'Unlocked' : 'Locked',
-              style: TextStyle(
-                  color: isSelected ? Colors.white70 : Colors.white60, fontSize: 12)),
+          _glowingText(enabled ? 'Unlocked' : 'Locked',
+              fontSize: 12,
+              opacity: isSelected ? 0.7 : 0.55),
         ],
       ),
     );
@@ -320,11 +301,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Row(
                   children: [
                     Expanded(
-                        child: Text('Leaderboard — ${selectedLevel.toUpperCase()}',
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white.withOpacity(0.95)))),
+                        child: _glowingText(
+                            'Leaderboard — ${selectedLevel.toUpperCase()}',
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)),
                     Icon(Icons.leaderboard, color: Colors.white54),
                   ],
                 ),
@@ -349,16 +329,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           children: [
                             CircleAvatar(
                                 backgroundColor: AppTheme.primary.withOpacity(0.14),
-                                child: Text('${idx + 1}',
-                                    style: TextStyle(
-                                        color: AppTheme.primary,
-                                        fontWeight: FontWeight.bold))),
+                                child: _glowingText('${idx + 1}', fontWeight: FontWeight.bold)),
                             const SizedBox(width: 12),
                             Expanded(
-                                child: Text(entry['users']?['username'] ?? 'Unknown',
-                                    style: const TextStyle(fontSize: 16))),
-                            Text(displayTime,
-                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                                child: _glowingText(entry['users']?['username'] ?? 'Unknown')),
+                            _glowingText(displayTime, fontWeight: FontWeight.bold),
                           ],
                         ),
                       );
@@ -372,7 +347,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       },
     );
   }
-
   Widget shopTab() {
     return ShopPage(
       coins: coins,
