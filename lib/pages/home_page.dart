@@ -408,7 +408,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                       Text('$coins',
                                           style: const TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.white.withOpacity(0.95))),
+                                              color: Colors.white.withOpacity(0.95)),
                                     ],
                                   ),
                                   const SizedBox(height: 6),
