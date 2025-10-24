@@ -24,6 +24,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final levels = ['easy', 'medium', 'hard'];
   late ConfettiController confettiController;
   String username = 'Guest';
+  String? equippedBackgroundUrl;
+
   int coins = 0;
 
   // Tab management
