@@ -182,13 +182,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 height: 220,
                 child: PageView.builder(
                   controller: pageController,
-                  physics: const ClampingScrollPhysics(), // zero resistance
-                  pageSnapping: false, // no snapping
+                  physics: const ClampingScrollPhysics(),
+                  pageSnapping: false,
                   itemCount: levels.length,
-                  //onPageChanged: (idx) {
-                    //setState(() => selectedLevel = levels[idx]);
-                    //_loadUnlocked();
-                  //},
                   itemBuilder: (context, index) {
                     return AnimatedBuilder(
                       animation: pageController,
@@ -196,14 +192,24 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         double pageOffset = pageController.hasClients
                             ? pageController.page ?? pageController.initialPage.toDouble()
                             : pageController.initialPage.toDouble();
-  
+                
                         final distance = (pageOffset - index).clamp(-1.0, 1.0);
                         final scale = 0.8 + (1 - distance.abs()) * 0.25;
                         final rotationY = distance * 0.35;
                         final opacity = 0.5 + (1 - distance.abs()) * 0.5;
-
-                        final isSelected = (pageOffset - index).abs() < 0.5;
-  
+                
+                        // Compute which card is "closest" to the center
+                        final currentCenteredIndex = pageOffset.round();
+                        final isSelected = index == currentCenteredIndex;
+                
+                        // Update selectedLevel without triggering rebuilds of the PageView
+                        if (isSelected && selectedLevel != levels[currentCenteredIndex]) {
+                          // Use setState once to update the current level for other tabs
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) setState(() => selectedLevel = levels[currentCenteredIndex]);
+                          });
+                        }
+                
                         return Transform(
                           alignment: Alignment.center,
                           transform: Matrix4.identity()
@@ -216,7 +222,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               child: levelCard(
                                 levels[index],
                                 unlocked.contains(levels[index]),
-                                isSelected: isSelected,//selectedLevel == levels[index],
+                                isSelected: isSelected,
                               ),
                             ),
                           ),
