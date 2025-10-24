@@ -157,8 +157,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       initialPage: levels.indexOf(selectedLevel),
     );
   
+    // Track the current page for smooth animation
+    double currentPage = levels.indexOf(selectedLevel).toDouble();
+  
+    // Add listener to update currentPage
+    pageController.addListener(() {
+      setState(() {
+        currentPage = pageController.page ?? currentPage;
+      });
+    });
+  
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _glassCard(
           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
@@ -181,7 +191,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 height: 200,
                 child: PageView.builder(
                   controller: pageController,
-                  physics: const BouncingScrollPhysics(), // Smooth feel
+                  physics: const BouncingScrollPhysics(),
                   itemCount: levels.length,
                   onPageChanged: (idx) {
                     setState(() => selectedLevel = levels[idx]);
@@ -191,39 +201,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     final level = levels[index];
                     final enabled = unlocked.contains(level);
   
-                    return AnimatedBuilder(
-                      animation: pageController,
-                      builder: (context, child) {
-                        double page = 0;
-                        if (pageController.hasClients && pageController.position.haveDimensions) {
-                          page = pageController.page!;
-                        } else {
-                          page = levels.indexOf(selectedLevel).toDouble();
-                        }
+                    final distance = (currentPage - index).clamp(-1.0, 1.0);
+                    final scale = 1 - (distance.abs() * 0.25); // Smooth scaling
+                    final rotationY = distance * 0.35; // Slight tilt
+                    final opacity = 0.5 + (scale * 0.5); // Smooth fading
   
-                        final distance = (page - index).clamp(-1.0, 1.0);
-                        final scale = 1 - (distance.abs() * 0.25); // Center card bigger
-                        final rotationY = distance * 0.4; // Side cards slightly rotated
-                        final opacity = 0.5 + (scale * 0.5); // Smooth fading
-  
-                        return Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()
-                            ..setEntry(3, 2, 0.001)
-                            ..rotateY(rotationY),
-                          child: Opacity(
-                            opacity: opacity,
-                            child: Transform.scale(
-                              scale: scale,
-                              child: levelCard(
-                                level,
-                                enabled,
-                                isSelected: selectedLevel == level,
-                              ),
-                            ),
+                    return Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()
+                        ..setEntry(3, 2, 0.001)
+                        ..rotateY(rotationY),
+                      child: Opacity(
+                        opacity: opacity,
+                        child: Transform.scale(
+                          scale: scale,
+                          child: levelCard(
+                            level,
+                            enabled,
+                            isSelected: selectedLevel == level,
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     );
                   },
                 ),
