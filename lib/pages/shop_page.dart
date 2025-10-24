@@ -6,14 +6,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ShopPage extends StatefulWidget {
   final int coins;
-  final Function(int) onCoinsChanged; // callback for HomePage
-  final Function(String?) onEquipBackground; // callback to notify equipped background
+  final Function(int) onCoinsChanged;
+  final Function(String?)? onEquipBackground; // callback to update equipped background
 
   const ShopPage({
     super.key,
     required this.coins,
     required this.onCoinsChanged,
-    required this.onEquipBackground,
+    this.onEquipBackground,
   });
 
   @override
@@ -26,8 +26,7 @@ class _ShopPageState extends State<ShopPage> {
 
   late int coins;
   List<Map<String, dynamic>> items = [];
-  Map<String, bool> ownedItems = {}; // item_id -> owned
-  String? equippedUrl; // currently equipped background
+  List<Map<String, dynamic>> userItems = [];
 
   @override
   void initState() {
@@ -38,24 +37,28 @@ class _ShopPageState extends State<ShopPage> {
 
   Future<void> _loadItems() async {
     final res = await supabase.from('shop_items').select();
-    final user = auth.currentUser;
-
-    Map<String, bool> ownership = {};
-    if (user != null) {
-      final userItems = await supabase
-          .from('user_items')
-          .select('item_id')
-          .eq('user_id', user.id);
-
-      for (var e in userItems) {
-        ownership[e['item_id'].toString()] = true;
-      }
-    }
-
+    final ownedRes = await supabase.from('user_items').select();
     setState(() {
       items = List<Map<String, dynamic>>.from(res);
-      ownedItems = ownership;
+      userItems = List<Map<String, dynamic>>.from(ownedRes);
     });
+  }
+
+  bool _isOwned(Map<String, dynamic> item) {
+    final user = auth.currentUser;
+    if (user == null) return false;
+    return userItems.any((ui) =>
+        ui['item_id'] == item['id'] &&
+        ui['user_id'] == user.id);
+  }
+
+  bool _isEquipped(Map<String, dynamic> item) {
+    final user = auth.currentUser;
+    if (user == null) return false;
+    return userItems.any((ui) =>
+        ui['item_id'] == item['id'] &&
+        ui['user_id'] == user.id &&
+        (ui['equipped'] == true));
   }
 
   Future<void> _purchaseItem(Map<String, dynamic> item) async {
@@ -65,7 +68,8 @@ class _ShopPageState extends State<ShopPage> {
     final price = (item['price'] as num).toInt();
     if (coins < price) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Not enough coins!')));
+        const SnackBar(content: Text('Not enough coins!')),
+      );
       return;
     }
 
@@ -73,38 +77,49 @@ class _ShopPageState extends State<ShopPage> {
       await supabase.from('user_items').insert({
         'user_id': user.id,
         'item_id': item['id'],
+        'equipped': false,
       });
 
       await auth.addCoins(-price);
       final newCoins = await auth.fetchCoins();
-      setState(() {
-        coins = newCoins;
-        ownedItems[item['id'].toString()] = true;
-      });
-
+      setState(() => coins = newCoins);
       widget.onCoinsChanged(newCoins);
 
+      await _loadItems();
+
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Purchased ${item['name']}!')));
+        SnackBar(content: Text('Purchased ${item['name']}!')),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Already owned!')));
+        const SnackBar(content: Text('Already owned!')),
+      );
     }
   }
 
-  void _equipItem(Map<String, dynamic> item) {
-    final url = item['asset_url'] as String?;
-    setState(() {
-      if (equippedUrl == url) {
-        // unequip
-        equippedUrl = null;
-      } else {
-        equippedUrl = url;
-      }
-    });
+  Future<void> _toggleEquip(Map<String, dynamic> item) async {
+    final user = auth.currentUser;
+    if (user == null) return;
 
-    // Notify QuizPage
-    widget.onEquipBackground(equippedUrl);
+    final userId = user.id;
+
+    // Unequip all items for this user
+    await supabase
+        .from('user_items')
+        .update({'equipped': false})
+        .eq('user_id', userId);
+
+    // Equip selected item
+    await supabase
+        .from('user_items')
+        .update({'equipped': true})
+        .eq('user_id', userId)
+        .eq('item_id', item['id']);
+
+    await _loadItems();
+
+    // Update QuizPage / HomePage
+    widget.onEquipBackground?.call(item['asset_url']);
   }
 
   @override
@@ -130,9 +145,6 @@ class _ShopPageState extends State<ShopPage> {
                 ),
                 itemBuilder: (_, index) {
                   final item = items[index];
-                  final owned = ownedItems[item['id'].toString()] ?? false;
-                  final isEquipped = owned && equippedUrl == item['asset_url'];
-
                   return Card(
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
@@ -147,8 +159,8 @@ class _ShopPageState extends State<ShopPage> {
                               item['asset_url'],
                               fit: BoxFit.cover,
                               width: double.infinity,
-                              errorBuilder: (_, __, ___) =>
-                                  const Center(child: Icon(Icons.broken_image, size: 48)),
+                              errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.broken_image, size: 48)),
                             ),
                           ),
                         ),
@@ -157,41 +169,37 @@ class _ShopPageState extends State<ShopPage> {
                           child: Column(
                             children: [
                               Text(item['name'],
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
+                                  style:
+                                      const TextStyle(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
                               Text('${item['price']} coins',
-                                  style:
-                                      const TextStyle(color: Colors.black54)),
+                                  style: const TextStyle(color: Colors.black54)),
                               const SizedBox(height: 8),
-                              if (!owned)
-                                ElevatedButton(
-                                  onPressed: coins >=
-                                          (item['price'] as num).toInt()
-                                      ? () => _purchaseItem(item)
-                                      : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primary,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                  ),
-                                  child: const Text('Buy'),
-                                )
-                              else
-                                ElevatedButton(
-                                  onPressed: () => _equipItem(item),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isEquipped
-                                        ? Colors.green
-                                        : AppTheme.primary,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                  ),
-                                  child: Text(
-                                      isEquipped ? 'Equipped' : 'Equip'),
-                                )
+                              _isOwned(item)
+                                  ? ElevatedButton(
+                                      onPressed: _isEquipped(item)
+                                          ? null
+                                          : () => _toggleEquip(item),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primary,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
+                                      ),
+                                      child: Text(_isEquipped(item)
+                                          ? 'Equipped'
+                                          : 'Equip'),
+                                    )
+                                  : ElevatedButton(
+                                      onPressed: () => _purchaseItem(item),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primary,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
+                                      ),
+                                      child: const Text('Buy'),
+                                    ),
                             ],
                           ),
                         ),
@@ -204,6 +212,7 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import '../animated_background.dart';
