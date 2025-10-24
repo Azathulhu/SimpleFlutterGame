@@ -381,7 +381,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           ),
           // confetti
-          Positioned(top: 10, right: 8, child: ConfettiWidget(controller: confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, colors: [AppTheme.primary, AppTheme.accent, Colors.amber])),
+          Positioned(top: 10, right: 8, child: ConfettiWidget(confettiController: confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, colors: [AppTheme.primary, AppTheme.accent, Colors.amber])),
           // floating bottom nav
           Positioned(
             left: 20,
