@@ -185,10 +185,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   physics: const ClampingScrollPhysics(), // zero resistance
                   pageSnapping: false, // no snapping
                   itemCount: levels.length,
-                  onPageChanged: (idx) {
-                    setState(() => selectedLevel = levels[idx]);
-                    _loadUnlocked();
-                  },
+                  //onPageChanged: (idx) {
+                    //setState(() => selectedLevel = levels[idx]);
+                    //_loadUnlocked();
+                  //},
                   itemBuilder: (context, index) {
                     return AnimatedBuilder(
                       animation: pageController,
@@ -201,6 +201,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         final scale = 0.8 + (1 - distance.abs()) * 0.25;
                         final rotationY = distance * 0.35;
                         final opacity = 0.5 + (1 - distance.abs()) * 0.5;
+
+                        final isSelected = (pageOffset - index).abs() < 0.5;
   
                         return Transform(
                           alignment: Alignment.center,
@@ -214,7 +216,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               child: levelCard(
                                 levels[index],
                                 unlocked.contains(levels[index]),
-                                isSelected: selectedLevel == levels[index],
+                                isSelected: isSelected,//selectedLevel == levels[index],
                               ),
                             ),
                           ),
