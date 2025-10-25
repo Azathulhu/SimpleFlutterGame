@@ -12,156 +12,16 @@ class SignInPage extends StatefulWidget {
   State<SignInPage> createState() => _SignInPageState();
 }
 
-class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
+class _SignInPageState extends State<SignInPage> with SingleTickerProviderStateMixin {
   final AuthService auth = AuthService();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool loading = false;
   String? error;
 
-  // Animation states
+  // Animation state
   bool showPanel = true;
-
-  // Controllers for "Welcome" animation
-  late AnimationController _welcomeController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Welcome text animation
-    _welcomeController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2));
-    _scaleAnimation =
-        Tween<double>(begin: 0.5, end: 1.2).animate(CurvedAnimation(
-      parent: _welcomeController,
-      curve: Curves.elasticOut,
-    ));
-    _opacityAnimation =
-        Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-      parent: _welcomeController,
-      curve: Curves.easeIn,
-    ));
-  }
-
-  @override
-  void dispose() {
-    _welcomeController.dispose();
-    super.dispose();
-  }
-
-  // Text field builder
-  Widget _buildTextField(TextEditingController controller, String label,
-      {bool obscureText = false}) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(
-          color: Colors.white70,
-          shadows: [
-            Shadow(
-              blurRadius: 6,
-              color: Colors.cyanAccent.withOpacity(0.5),
-              offset: const Offset(0, 0),
-            ),
-          ],
-        ),
-        filled: true,
-        fillColor: Colors.blueGrey.shade900.withOpacity(0.7),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
-      style: const TextStyle(color: Colors.white),
-    );
-  }
-
-  // Button builder
-  Widget _buildButton(String text, VoidCallback onTap) {
-    return ScaleOnTap(
-      onTap: onTap,
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: onTap,
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: Colors.cyan.shade700,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            shadowColor: Colors.cyanAccent.withOpacity(0.6),
-            elevation: 6,
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  blurRadius: 12,
-                  color: Colors.white70,
-                  offset: Offset(0, 0),
-                ),
-                Shadow(
-                  blurRadius: 24,
-                  color: Colors.cyanAccent,
-                  offset: Offset(0, 0),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _signIn() async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
-
-    try {
-      await auth.signIn(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-
-      // Fade out the panel
-      setState(() {
-        showPanel = false;
-      });
-
-      await Future.delayed(const Duration(seconds: 1));
-
-      // Start welcome animation
-      _welcomeController.forward();
-
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } catch (e) {
-      setState(() {
-        error = e.toString();
-        showPanel = true;
-      });
-    } finally {
-      setState(() {
-        loading = false;
-      });
-    }
-  }
+  bool showWelcome = false;
 
   @override
   Widget build(BuildContext context) {
@@ -169,14 +29,14 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
       child: GlobalTapRipple(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Sign-in panel
-                AnimatedOpacity(
-                  opacity: showPanel ? 1 : 0,
-                  duration: const Duration(seconds: 1),
+          body: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Sign-in Panel
+              AnimatedOpacity(
+                opacity: showPanel ? 1.0 : 0.0,
+                duration: const Duration(seconds: 1),
+                child: Center(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: ConstrainedBox(
@@ -184,8 +44,7 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
                       child: Card(
                         color: const Color(0xFF0A1F2E),
                         elevation: 12,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Column(
@@ -211,25 +70,21 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: Text(error!,
                                       style: const TextStyle(
-                                          color: Colors.redAccent,
-                                          fontWeight: FontWeight.bold)),
+                                          color: Colors.redAccent, fontWeight: FontWeight.bold)),
                                 ),
                               _buildTextField(emailController, 'Email'),
                               const SizedBox(height: 16),
-                              _buildTextField(passwordController, 'Password',
-                                  obscureText: true),
+                              _buildTextField(passwordController, 'Password', obscureText: true),
                               const SizedBox(height: 24),
                               loading
                                   ? const CircularProgressIndicator(
                                       color: AppTheme.primary,
                                     )
-                                  : _buildButton('Sign In & Play Quiz', _signIn),
+                                  : _buildButton('Sign In & Play Quiz', _handleSignIn),
                               const SizedBox(height: 12),
                               TextButton(
-                                onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const SignUpPage())),
+                                onPressed: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => const SignUpPage())),
                                 child: Text(
                                   'Create account',
                                   style: TextStyle(
@@ -238,8 +93,7 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
                                     shadows: [
                                       Shadow(
                                         blurRadius: 6,
-                                        color:
-                                            AppTheme.primary.withOpacity(0.6),
+                                        color: AppTheme.primary.withOpacity(0.6),
                                         offset: const Offset(0, 0),
                                       ),
                                     ],
@@ -253,41 +107,146 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
+              ),
 
-                // Welcome Text
-                AnimatedBuilder(
-                  animation: _welcomeController,
-                  builder: (_, child) {
-                    return Opacity(
-                      opacity: _opacityAnimation.value,
-                      child: Transform.scale(
-                        scale: _scaleAnimation.value,
-                        child: child,
+              // Welcome Text
+              AnimatedOpacity(
+                opacity: showWelcome ? 1.0 : 0.0,
+                duration: const Duration(seconds: 2),
+                curve: Curves.easeInOut,
+                child: Text(
+                  'Welcome!',
+                  style: TextStyle(
+                    fontSize: 64,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primary,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 30,
+                        color: AppTheme.primary.withOpacity(0.8),
+                        offset: const Offset(0, 0),
                       ),
-                    );
-                  },
-                  child: Text(
-                    'Welcome!',
-                    style: TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 18,
-                          color: Colors.white.withOpacity(0.7),
-                          offset: const Offset(0, 0),
-                        ),
-                        Shadow(
-                          blurRadius: 32,
-                          color: Colors.cyanAccent.withOpacity(0.5),
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
-                    ),
+                      Shadow(
+                        blurRadius: 40,
+                        color: AppTheme.primary.withOpacity(0.6),
+                        offset: const Offset(0, 0),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSignIn() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+
+    try {
+      await auth.signIn(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      Fluttertoast.showToast(msg: 'Signed in!');
+
+      // Fade out panel
+      setState(() {
+        showPanel = false;
+      });
+
+      // Wait for fade-out
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Show Welcome text
+      setState(() {
+        showWelcome = true;
+      });
+
+      // Wait for Welcome animation
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (_) => const HomePage()));
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+      });
+    } finally {
+      setState(() {
+        loading = false;
+      });
+    }
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label,
+      {bool obscureText = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white70),
+        filled: true,
+        fillColor: const Color(0xFF102A3A),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppTheme.primary.withOpacity(0.5)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppTheme.primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
+  Widget _buildButton(String text, VoidCallback onTap) {
+    return ScaleOnTap(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppTheme.primary.withOpacity(0.8), AppTheme.primary],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primary.withOpacity(0.6),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Center(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                shadows: [
+                  Shadow(
+                    blurRadius: 12,
+                    color: Colors.white38,
+                    offset: Offset(0, 0),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -295,7 +254,6 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
     );
   }
 }
-
 
 
 /*import 'package:flutter/material.dart';
