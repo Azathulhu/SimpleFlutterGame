@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../theme.dart';
 import '../animated_background.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/sound_effect_service.dart';
 
 const List<String> levelOrder = ['easy', 'medium', 'hard'];
 
@@ -468,7 +469,12 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                             ...q.options.map((opt) => Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 6),
                                   child: ElevatedButton(
-                                    onPressed: () => _answer(opt),
+                                    
+                                    onPressed: (){
+                                      SoundEffectService().play('assets/sfx/tap.mp3');
+                                      _answer(opt);
+                                    },
+                                    //onPressed: () => _answer(opt),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor:
                                           const Color(0xFF00FFC8).withOpacity(0.15),
