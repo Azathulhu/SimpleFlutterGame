@@ -271,6 +271,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                       ),
                     ],
                   )),
+              SoundEffectService().play('assets/audio/sfx/finished.mp3');
             const SizedBox(height: 12),
             const Divider(color: Colors.tealAccent),
             const SizedBox(height: 8),
