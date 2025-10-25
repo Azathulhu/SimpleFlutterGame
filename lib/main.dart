@@ -11,7 +11,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY);
 
-  // Start background music
+  // Play background music at app start
   MusicService().play('assets/audio/analogmemory.mp3');
 
   runApp(const QuizMasterApp());
