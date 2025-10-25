@@ -17,17 +17,20 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 10))
+
+    // 12-second smooth gradient loop
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 12))
       ..repeat(reverse: true);
 
+    // Gradient color tweens for dark blue → dark greenish-blue theme
     _color1 = ColorTween(
-      begin: const Color(0xFFB2EBF2), // light cyan
-      end: const Color(0xFFB2DFDB),   // light blue-green
+      begin: const Color(0xFF0A1F2E), // dark navy blue
+      end: const Color(0xFF0F3B4A),   // slightly lighter blue
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _color2 = ColorTween(
-      begin: const Color(0xFF81D4FA), // light sky blue
-      end: const Color(0xFF80CBC4),   // calm green
+      begin: const Color(0xFF0F3B4A), // blue-green dark
+      end: const Color(0xFF12505F),   // subtle greenish-blue
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
@@ -54,6 +57,8 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
     );
   }
 }
+
+// Ripple effect remains the same
 class GlobalTapRipple extends StatelessWidget {
   final Widget child;
   const GlobalTapRipple({super.key, required this.child});
@@ -96,8 +101,12 @@ class _RippleEffectState extends State<_RippleEffect>
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 600))
       ..forward();
-    _radius = Tween<double>(begin: 0, end: 100).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _opacity = Tween<double>(begin: 0.4, end: 0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _radius = Tween<double>(begin: 0, end: 100).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _opacity = Tween<double>(begin: 0.4, end: 0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
   }
 
   @override
@@ -117,7 +126,7 @@ class _RippleEffectState extends State<_RippleEffect>
           height: _radius.value * 2,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
+            color: Colors.white.withOpacity(0.6),
           ),
         ),
       ),
