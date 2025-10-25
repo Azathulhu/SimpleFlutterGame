@@ -471,7 +471,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                                   child: ElevatedButton(
                                     
                                     onPressed: (){
-                                      SoundEffectService().play('assets/sfx/tap.mp3');
+                                      SoundEffectService().play('assets/audio/sfx/tap.mp3');
                                       _answer(opt);
                                     },//
                                     //onPressed: () => _answer(opt),
