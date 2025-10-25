@@ -1,45 +1,72 @@
+// lib/services/music_service.dart
+import 'dart:async';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/widgets.dart';
 
-class MusicService {
+class MusicService with WidgetsBindingObserver {
   static final MusicService _instance = MusicService._internal();
   factory MusicService() => _instance;
-
-  late final AudioPlayer _player;
-  bool _initialized = false;
-
   MusicService._internal() {
-    _player = AudioPlayer();
+    WidgetsBinding.instance.addObserver(this);
+    _startWatcher();
   }
 
-  Future<void> init() async {
-    if (_initialized) return;
-    _initialized = true;
-    // Keep the music app-exclusive by not using audio session
-    await _player.setLoopMode(LoopMode.one);
-  }
+  final AudioPlayer _player = AudioPlayer();
+  Timer? _watcher;
+  bool _isAppInForeground = true;
 
-  Future<void> playBackground(String assetPath) async {
-    await init();
+  Future<void> playLooping(String assetPath) async {
     try {
       await _player.setAsset(assetPath);
-      await _player.play();
+      _player.setLoopMode(LoopMode.one);
+      if (_isAppInForeground) {
+        _player.play();
+      }
     } catch (e) {
-      debugPrint('Error playing music: $e');
+      print("MusicService playLooping error: $e");
     }
   }
 
-  Future<void> stop() async {
-    await _player.stop();
+  void stop() {
+    _player.stop();
   }
 
-  Future<void> pause() async {
-    await _player.pause();
+  void pause() {
+    _player.pause();
   }
 
-  Future<void> resume() async {
-    await _player.play();
+  void resume() {
+    if (_isAppInForeground) _player.play();
   }
 
-  bool get isPlaying => _player.playing;
+  // Watcher to auto-restart if music stops unexpectedly
+  void _startWatcher() {
+    _watcher = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (!_isAppInForeground) return;
+      if (_player.playing == false && _player.processingState == ProcessingState.ready) {
+        try {
+          await _player.play();
+        } catch (_) {}
+      }
+    });
+  }
+
+  // Handle app foreground/background
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppInForeground = state == AppLifecycleState.resumed;
+    if (_isAppInForeground) {
+      if (_player.playing == false && _player.processingState == ProcessingState.ready) {
+        _player.play();
+      }
+    } else {
+      _player.pause();
+    }
+  }
+
+  void dispose() {
+    _watcher?.cancel();
+    _player.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+  }
 }
