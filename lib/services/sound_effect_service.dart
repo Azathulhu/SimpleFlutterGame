@@ -5,13 +5,18 @@ class SoundEffectService {
   factory SoundEffectService() => _instance;
   SoundEffectService._internal();
 
-  final AudioPlayer _player = AudioPlayer(); // separate player for SFX
-
-  /// Play a short sound effect from assets
+  /// Play a short sound effect from assets using a new player each time
   Future<void> play(String assetPath) async {
+    final player = AudioPlayer();
     try {
-      await _player.setAsset(assetPath);
-      await _player.play();
+      await player.setAsset(assetPath);
+      await player.play();
+      // Dispose automatically after playing
+      player.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed) {
+          player.dispose();
+        }
+      });
     } catch (e) {
       print('Error playing SFX: $e');
     }
