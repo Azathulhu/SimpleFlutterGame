@@ -40,6 +40,7 @@ dependencies:
   google_fonts: ^6.3.2
   confetti: ^0.7.0
   fluttertoast: ^9.0.0
+  just_audio: ^0.9.34
 
 dev_dependencies:
   flutter_test:
