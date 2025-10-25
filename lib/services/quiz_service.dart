@@ -89,9 +89,60 @@ class QuizService {
       }
     }
   }
-
-  /// This is the **perfect-time submission method** used by QuizPage.
   Future<void> submitPerfectTime({
+    required String userId,
+    required String level,
+    required int timeMs, // milliseconds
+  }) async {
+    // Try to get an existing row for this user+level
+    final existing = await supabase
+        .from('leaderboard')
+        .select('time_ms')
+        .eq('user_id', userId)
+        .eq('level', level)
+        .maybeSingle();
+
+    // If no row exists at all -> insert new
+    if (existing == null) {
+      await supabase.from('leaderboard').insert({
+        'user_id': userId,
+        'level': level,
+        'time_ms': timeMs,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return;
+    }
+
+    // existing row found -> check stored time_ms (could be null, int, or string)
+    final dynamic stored = existing['time_ms'];
+    int? currentTimeMs;
+
+    if (stored == null) {
+      currentTimeMs = null; // no previous time recorded
+    } else if (stored is int) {
+      currentTimeMs = stored;
+    } else {
+      // try parse string or other numeric-like values
+      currentTimeMs = int.tryParse(stored.toString());
+    }
+
+    // If there's no current time, or the new time is faster (smaller), update
+    final shouldUpdate = currentTimeMs == null || timeMs < currentTimeMs;
+
+    if (shouldUpdate) {
+      await supabase
+          .from('leaderboard')
+          .update({
+            'time_ms': timeMs,
+            'created_at': DateTime.now().toIso8601String(),
+          })
+          .eq('user_id', userId)
+          .eq('level', level);
+    }
+    // else: do nothing (new run wasn't faster)
+  }
+  /// This is the **perfect-time submission method** used by QuizPage.
+  /*Future<void> submitPerfectTime({
     required String userId,
     required String level,
     required int score,
@@ -129,7 +180,7 @@ class QuizService {
             .eq('level', level);
       }
     }
-  }
+  }*/
 
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
     required String level,
