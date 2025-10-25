@@ -258,23 +258,19 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
                 style: GoogleFonts.nunitoSans(
                     fontSize: 16, color: Colors.white70)),
             const SizedBox(height: 12),
-            if (recordedPerfect){
-              SoundEffectService().play('assets/audio/sfx/finished.mp3');
-              children.add(
-                Text('Congratulations!',
-                    style: GoogleFonts.nunitoSans(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1DE9B6),
-                      shadows: [
-                        Shadow(
-                          color: Colors.tealAccent.withOpacity(0.8),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    )),
-                  );
-            }
+            if (recordedPerfect)
+              Text('Congratulations!',
+                style: GoogleFonts.nunitoSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1DE9B6),
+                  shadows: [
+                    Shadow(
+                      color: Colors.tealAccent.withOpacity(0.8),
+                      blurRadius: 10,
+                    ),
+                  ],
+                )),
             const SizedBox(height: 12),
             const Divider(color: Colors.tealAccent),
             const SizedBox(height: 8),
