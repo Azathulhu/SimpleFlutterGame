@@ -35,12 +35,14 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
   Duration timerDuration = const Duration(seconds: 60);
 
   List<Map<String, dynamic>> latestLeaderboard = [];
+  String? equippedBackgroundUrl;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 1));
     _stopwatch = Stopwatch();
+    _loadEquippedBackground();
     _load();
   }
 
@@ -50,6 +52,28 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     _tickTimer?.cancel();
     _stopwatch.stop();
     super.dispose();
+  }
+
+  Future<void> _loadEquippedBackground() async {
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    final res = await Supabase.instance.client
+        .from('user_items')
+        .select('shop_items(asset_url)')
+        .eq('user_id', user.id)
+        .eq('equipped', true)
+        .maybeSingle();
+
+    if (res != null) {
+      setState(() {
+        equippedBackgroundUrl = res['shop_items']['asset_url'];
+      });
+    } else {
+      setState(() {
+        equippedBackgroundUrl = null;
+      });
+    }
   }
 
   Future<void> _load() async {
@@ -166,7 +190,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         );
         await auth.addCoins(score);
 
-        // Unlock current and next level
+        // Unlock levels
         await auth.unlockLevel(widget.level);
         final idx = levelOrder.indexOf(widget.level);
         if (idx < levelOrder.length - 1) {
@@ -190,47 +214,6 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
     }
 
     _showCompletionDialog(recordedPerfect: isPerfect);
-  }
-
-  Future<void> _submitScore({required bool recordPerfect}) async {
-    final user = auth.currentUser;
-    if (user == null) return;
-
-    final elapsedMs = _stopwatch.elapsedMilliseconds;
-
-    if (recordPerfect) {
-      await quizService.submitPerfectTime(
-        userId: user.id,
-        level: widget.level,
-        score: score,
-        timeMs: elapsedMs,
-      );
-
-      await auth.addCoins(score);
-      final newCoins = await auth.fetchCoins();
-      setState(() => coins = newCoins);
-
-      await auth.unlockLevel(widget.level);
-      final idx = levelOrder.indexOf(widget.level);
-      if (idx < levelOrder.length - 1) {
-        await auth.unlockLevel(levelOrder[idx + 1]);
-      }
-
-      _confettiController.play();
-    } else {
-      await quizService.submitScore(
-        userId: user.id,
-        level: widget.level,
-        score: score,
-      );
-    }
-
-    latestLeaderboard = await quizService.fetchLeaderboard(
-      level: widget.level,
-      limit: 50,
-    );
-
-    setState(() {});
   }
 
   void _showCompletionDialog({required bool recordedPerfect}) {
@@ -335,78 +318,88 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
             backgroundColor: Colors.transparent,
             elevation: 0,
           ),
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: LinearProgressIndicator(
-                            value: healthPercent,
-                            minHeight: 12,
-                            backgroundColor: Colors.grey.shade300,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+          body: Container(
+            decoration: BoxDecoration(
+              image: equippedBackgroundUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(equippedBackgroundUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: healthPercent,
+                              minHeight: 12,
+                              backgroundColor: Colors.grey.shade300,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${((timerDuration.inMilliseconds * healthPercent) / 1000).clamp(0, timerDuration.inMilliseconds / 1000).toStringAsFixed(1)}s',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(value: progress, minHeight: 8),
+                      const SizedBox(height: 12),
+                      Card(
+                        key: ValueKey(q.id),
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Question ${currentIndex + 1}/${questions.length}',
+                                  style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                              const SizedBox(height: 8),
+                              Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 16),
+                              ...q.options.map((opt) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: ElevatedButton(
+                                      onPressed: () => _answer(opt),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: Colors.black87,
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                      ),
+                                      child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
+                                    ),
+                                  )),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${((timerDuration.inMilliseconds * healthPercent) / 1000).clamp(0, timerDuration.inMilliseconds / 1000).toStringAsFixed(1)}s',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    LinearProgressIndicator(value: progress, minHeight: 8),
-                    const SizedBox(height: 12),
-                    Card(
-                      key: ValueKey(q.id),
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Question ${currentIndex + 1}/${questions.length}',
-                                style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                            const SizedBox(height: 8),
-                            Text(q.text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 16),
-                            ...q.options.map((opt) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
-                                  child: ElevatedButton(
-                                    onPressed: () => _answer(opt),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: Colors.black87,
-                                      elevation: 2,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                    ),
-                                    child: Align(alignment: Alignment.centerLeft, child: Text(opt)),
-                                  ),
-                                )),
-                          ],
-                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Score: $score', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 12),
-                    ConfettiWidget(
-                      confettiController: _confettiController,
-                      blastDirectionality: BlastDirectionality.explosive,
-                      shouldLoop: false,
-                      colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
-                      emissionFrequency: 0.05,
-                      numberOfParticles: 15,
-                      gravity: 0.3,
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      Text('Score: $score', style: const TextStyle(fontSize: 16)),
+                      const SizedBox(height: 12),
+                      ConfettiWidget(
+                        confettiController: _confettiController,
+                        blastDirectionality: BlastDirectionality.explosive,
+                        shouldLoop: false,
+                        colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+                        emissionFrequency: 0.05,
+                        numberOfParticles: 15,
+                        gravity: 0.3,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
