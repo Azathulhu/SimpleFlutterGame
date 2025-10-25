@@ -12,7 +12,7 @@ void main() async {
   await Supabase.initialize(url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY);
 
   // Play background music at app start
-  MusicService().play('assets/audio/analogmemory.mp3');
+  MusicService().playBackground('assets/audio/analogmemory.mp3');
 
   runApp(const QuizMasterApp());
 }
