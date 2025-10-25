@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../animated_background.dart';
 import '../theme.dart';
 import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,7 +20,7 @@ class ShopPage extends StatefulWidget {
   State<ShopPage> createState() => _ShopPageState();
 }
 
-class _ShopPageState extends State<ShopPage> {
+class _ShopPageState extends State<ShopPage> with SingleTickerProviderStateMixin {
   final AuthService auth = AuthService();
   final supabase = Supabase.instance.client;
 
@@ -29,11 +28,24 @@ class _ShopPageState extends State<ShopPage> {
   List<Map<String, dynamic>> items = [];
   List<Map<String, dynamic>> userItems = [];
 
+  late AnimationController _hoverController;
+
   @override
   void initState() {
     super.initState();
     coins = widget.coins;
     _loadItems();
+
+    // subtle hover/floating animation for cards
+    _hoverController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadItems() async {
@@ -104,13 +116,11 @@ class _ShopPageState extends State<ShopPage> {
 
     final userId = user.id;
 
-    // Unequip all items for this user
     await supabase
         .from('user_items')
         .update({'equipped': false})
         .eq('user_id', userId);
 
-    // Equip selected item
     await supabase
         .from('user_items')
         .update({'equipped': true})
@@ -124,155 +134,143 @@ class _ShopPageState extends State<ShopPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedGradientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text('Shop'),
+    return Stack(
+      children: [
+        const ParticleBackground(), // use your homepage particle background
+        Scaffold(
           backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-        ),
-        body: items.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : GridView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: items.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 0.7,
-                ),
-                itemBuilder: (_, index) {
-                  final item = items[index];
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.blueAccent.withOpacity(0.2),
-                              Colors.purpleAccent.withOpacity(0.2)
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.purpleAccent.withOpacity(0.3),
-                              blurRadius: 12,
-                              spreadRadius: 1,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(20)),
-                                child: Image.network(
-                                  item['asset_url'],
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Center(
-                                          child: Icon(Icons.broken_image,
-                                              size: 48)),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    item['name'],
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.purpleAccent,
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${item['price']} coins',
-                                    style: const TextStyle(
-                                      color: Colors.cyanAccent,
-                                      fontWeight: FontWeight.w500,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.blueAccent,
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _isOwned(item)
-                                      ? ElevatedButton(
-                                          onPressed: _isEquipped(item)
-                                              ? null
-                                              : () => _toggleEquip(item),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                Colors.purpleAccent,
-                                            foregroundColor: Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14)),
-                                            elevation: 8,
-                                            shadowColor: Colors.purpleAccent
-                                                .withOpacity(0.6),
-                                          ),
-                                          child: Text(_isEquipped(item)
-                                              ? 'Equipped'
-                                              : 'Equip'),
-                                        )
-                                      : ElevatedButton(
-                                          onPressed: () => _purchaseItem(item),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                Colors.blueAccent,
-                                            foregroundColor: Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14)),
-                                            elevation: 8,
-                                            shadowColor: Colors.blueAccent
-                                                .withOpacity(0.6),
-                                          ),
-                                          child: const Text('Buy'),
-                                        ),
+          appBar: AppBar(
+            title: const Text('Shop'),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+          body: items.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: items.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.72,
+                  ),
+                  itemBuilder: (_, index) {
+                    final item = items[index];
+                    return AnimatedBuilder(
+                      animation: _hoverController,
+                      builder: (context, child) {
+                        final floatY = 4 * (0.5 - (_hoverController.value));
+                        return Transform.translate(
+                          offset: Offset(0, floatY),
+                          child: child,
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0.05),
+                                  Colors.white.withOpacity(0.02)
                                 ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: Colors.white.withOpacity(0.04)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primary.withOpacity(0.18),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
-                          ],
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(20)),
+                                    child: Image.network(
+                                      item['asset_url'],
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Center(
+                                              child: Icon(
+                                                  Icons.broken_image,
+                                                  size: 48)),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Column(
+                                    children: [
+                                      Text(item['name'],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white)),
+                                      const SizedBox(height: 4),
+                                      Text('${item['price']} coins',
+                                          style: TextStyle(
+                                              color: Colors.white
+                                                  .withOpacity(0.6))),
+                                      const SizedBox(height: 8),
+                                      _isOwned(item)
+                                          ? ElevatedButton(
+                                              onPressed: _isEquipped(item)
+                                                  ? null
+                                                  : () =>
+                                                      _toggleEquip(item),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppTheme.primary
+                                                    .withOpacity(0.9),
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            14)),
+                                              ),
+                                              child: Text(_isEquipped(item)
+                                                  ? 'Equipped'
+                                                  : 'Equip'),
+                                            )
+                                          : ElevatedButton(
+                                              onPressed: () =>
+                                                  _purchaseItem(item),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppTheme.primary
+                                                    .withOpacity(0.9),
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            14)),
+                                              ),
+                                              child: const Text('Buy'),
+                                            ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import '../animated_background.dart';
