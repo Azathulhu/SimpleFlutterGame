@@ -1,3 +1,4 @@
+// lib/services/sound_effect_service.dart
 import 'package:just_audio/just_audio.dart';
 
 class SoundEffectService {
@@ -5,18 +6,28 @@ class SoundEffectService {
   factory SoundEffectService() => _instance;
   SoundEffectService._internal();
 
-  final AudioPlayer _player = AudioPlayer(); // Persistent player
-
-  /// Play a short sound effect from assets
+  /// Play a short SFX from assets without interfering with MusicService
   Future<void> play(String assetPath) async {
-    try {
-      // Stop current sound if still playing
-      if (_player.playing) await _player.stop();
+    final player = AudioPlayer(
+      // This ensures it doesn’t take audio focus from your music player
+      audioSource: null,
+      handleInterruptions: false,
+    );
 
-      await _player.setAsset(assetPath);
-      await _player.play();
+    try {
+      await player.setAsset(assetPath);
+      await player.play();
+
+      // Dispose after completion safely
+      player.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed ||
+            state.processingState == ProcessingState.idle) {
+          player.dispose();
+        }
+      });
     } catch (e) {
-      print('Error playing SFX: $e');
+      print('SFX play error: $e');
+      player.dispose();
     }
   }
 }
