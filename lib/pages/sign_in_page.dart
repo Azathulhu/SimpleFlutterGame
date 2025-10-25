@@ -1,3 +1,17 @@
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import '../services/auth_service.dart';
+import 'sign_up_page.dart';
+import 'home_page.dart';
+import '../theme.dart';
+import '../animated_background.dart';
+
+class SignInPage extends StatefulWidget {
+  const SignInPage({super.key});
+  @override
+  State<SignInPage> createState() => _SignInPageState();
+}
+
 class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
   final AuthService auth = AuthService();
   final emailController = TextEditingController();
@@ -8,6 +22,71 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
   // Animation states
   bool showPanel = true;
   bool showWelcome = false;
+
+  // Helper for text fields
+  Widget _buildTextField(TextEditingController controller, String label,
+      {bool obscureText = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          color: Colors.white70,
+          shadows: [
+            Shadow(
+              blurRadius: 6,
+              color: Colors.blueAccent.withOpacity(0.5),
+              offset: const Offset(0, 0),
+            ),
+          ],
+        ),
+        filled: true,
+        fillColor: Colors.blueGrey.shade900.withOpacity(0.7),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      style: const TextStyle(color: Colors.white),
+    );
+  }
+
+  // Helper for buttons
+  Widget _buildButton(String text, VoidCallback onTap) {
+    return ScaleOnTap(
+      onTap: onTap,
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            backgroundColor: Colors.blueAccent.shade700,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shadowColor: Colors.blueAccent.withOpacity(0.6),
+            elevation: 6,
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  blurRadius: 12,
+                  color: Colors.blueAccent,
+                  offset: Offset(0, 0),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,13 +163,12 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
                                         setState(() {
                                           showPanel = false;
                                         });
-                                        // Delay 1 second to match fade
                                         await Future.delayed(
                                             const Duration(seconds: 1));
+                                        // Fade in Welcome
                                         setState(() {
                                           showWelcome = true;
                                         });
-                                        // Show welcome for 1.5 sec
                                         await Future.delayed(
                                             const Duration(milliseconds: 1500));
                                         if (!mounted) return;
@@ -124,7 +202,8 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
                                     shadows: [
                                       Shadow(
                                         blurRadius: 6,
-                                        color: AppTheme.primary.withOpacity(0.6),
+                                        color:
+                                            AppTheme.primary.withOpacity(0.6),
                                         offset: const Offset(0, 0),
                                       ),
                                     ],
@@ -170,6 +249,7 @@ class _SignInPageState extends State<SignInPage> with TickerProviderStateMixin {
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
