@@ -154,7 +154,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         await quizService.submitPerfectTime(
           userId: user.id,
           level: widget.level,
-          score: score,
+          //score: score,
           timeMs: _stopwatch.elapsedMilliseconds,
         );
         await auth.addCoins(score);
@@ -162,7 +162,7 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
         await quizService.submitScore(
           userId: user.id,
           level: widget.level,
-          score: score,
+          //score: score,
         );
       }
 
