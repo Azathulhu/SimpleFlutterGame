@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/auth_service.dart';
+import 'home_page.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ShopPage extends StatefulWidget {
