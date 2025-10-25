@@ -709,7 +709,7 @@ class _ParticleBackgroundState extends State<ParticleBackground> with SingleTick
   late final AnimationController _ctrl;
   final List<_Node> nodes = [];
   final Random rng = Random();
-  static const int nodeCount = 28;
+  static const int nodeCount = 80;
   static const double maxDist = 110;
 
   @override
