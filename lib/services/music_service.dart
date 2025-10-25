@@ -1,15 +1,32 @@
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 class MusicService {
-  // Singleton pattern
   static final MusicService _instance = MusicService._internal();
   factory MusicService() => _instance;
   MusicService._internal();
 
   final AudioPlayer _player = AudioPlayer();
 
-  /// Start background music (loops automatically)
+  Future<void> _configureAudioSession() async {
+    final session = await AudioSession.instance;
+    await session.configure(AudioSessionConfiguration.music(
+      avAudioSessionCategory: AVAudioSessionCategory.playback,
+      avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.mixWithOthers,
+      avAudioSessionMode: AVAudioSessionMode.defaultMode,
+      avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
+      avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+      androidAudioAttributes: const AndroidAudioAttributes(
+        contentType: AndroidAudioContentType.music,
+        usage: AndroidAudioUsage.media,
+      ),
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+    ));
+  }
+
   Future<void> playBackgroundMusic(String assetPath) async {
+    await _configureAudioSession();
+
     try {
       await _player.setAsset(assetPath);
       _player.setLoopMode(LoopMode.all);
@@ -19,15 +36,8 @@ class MusicService {
     }
   }
 
-  /// Pause music
   void pause() => _player.pause();
-
-  /// Stop music
   void stop() => _player.stop();
-
-  /// Change volume (0.0 to 1.0)
   void setVolume(double vol) => _player.setVolume(vol);
-
-  /// Get the player (optional)
   AudioPlayer get player => _player;
 }
