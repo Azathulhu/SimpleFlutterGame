@@ -221,7 +221,9 @@ class _QuizPageState extends State<QuizPage> with SingleTickerProviderStateMixin
 
   void _showCompletionDialog({required bool recordedPerfect}) {
     final elapsedS = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
-
+    if (recordedPerfect) {
+      SoundEffectService().play('assets/audio/sfx/finished.mp3');
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
