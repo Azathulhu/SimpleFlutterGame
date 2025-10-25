@@ -136,7 +136,7 @@ class _ShopPageState extends State<ShopPage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const ParticleBackground(), // use your homepage particle background
+        ParticleBackground(), // use your homepage particle background
         Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
