@@ -89,8 +89,49 @@ class QuizService {
       }
     }
   }
-  /// This is the **perfect-time submission method** used by QuizPage.
   Future<void> submitPerfectTime({
+    required String userId,
+    required String level,
+    required int score,
+    required int timeMs,
+  }) async {
+    final existing = await supabase
+        .from('leaderboard')
+        .select('time_ms')
+        .eq('user_id', userId)
+        .eq('level', level)
+        .maybeSingle();
+  
+    // No record yet — insert new one
+    if (existing == null) {
+      await supabase.from('leaderboard').insert({
+        'user_id': userId,
+        'level': level,
+        'score': score,
+        'time_ms': timeMs,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return;
+    }
+  
+    final currentTime = (existing['time_ms'] as int?) ?? 999999999;
+  
+    // Update ONLY if new time is strictly faster
+    if (timeMs < currentTime) {
+      await supabase
+          .from('leaderboard')
+          .update({
+            'score': score,      // keeping score just to show, but not used to decide
+            'time_ms': timeMs,
+            'created_at': DateTime.now().toIso8601String(),
+          })
+          .eq('user_id', userId)
+          .eq('level', level);
+    }
+  }
+
+  /// This is the **perfect-time submission method** used by QuizPage.
+  /*Future<void> submitPerfectTime({
     required String userId,
     required String level,
     required int score,
@@ -128,7 +169,7 @@ class QuizService {
             .eq('level', level);
       }
     }
-  }
+  }*/
 
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
     required String level,
