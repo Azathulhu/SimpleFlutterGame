@@ -1,70 +1,45 @@
-// lib/services/music_service.dart
-import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter/widgets.dart';
 
-class MusicService with WidgetsBindingObserver {
+class MusicService {
   static final MusicService _instance = MusicService._internal();
   factory MusicService() => _instance;
+
+  late final AudioPlayer _player;
+  bool _initialized = false;
+
   MusicService._internal() {
-    WidgetsBinding.instance.addObserver(this);
+    _player = AudioPlayer();
   }
 
-  final AudioPlayer _player = AudioPlayer();
-  bool _playing = false;
-  String? _currentAsset;
+  Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
+    // Keep the music app-exclusive by not using audio session
+    await _player.setLoopMode(LoopMode.one);
+  }
 
-  /// Start playing music in loop
-  Future<void> playBackgroundMusic(String assetPath) async {
-    if (_currentAsset == assetPath && _playing) return;
-    _currentAsset = assetPath;
-
+  Future<void> playBackground(String assetPath) async {
+    await init();
     try {
       await _player.setAsset(assetPath);
-      _player.setLoopMode(LoopMode.one);
-      _player.play();
-      _playing = true;
+      await _player.play();
     } catch (e) {
-      debugPrint('Error playing background music: $e');
+      debugPrint('Error playing music: $e');
     }
   }
 
-  /// Stop music completely
   Future<void> stop() async {
-    _playing = false;
     await _player.stop();
   }
 
-  /// Pause music manually
   Future<void> pause() async {
-    if (_playing) {
-      await _player.pause();
-      _playing = false;
-    }
+    await _player.pause();
   }
 
-  /// Resume music manually
   Future<void> resume() async {
-    if (!_playing) {
-      await _player.play();
-      _playing = true;
-    }
+    await _player.play();
   }
 
-  /// Listen to app lifecycle (pause/resume)
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      // user left the app temporarily -> pause music
-      pause();
-    } else if (state == AppLifecycleState.resumed) {
-      // user returned to the app -> resume music
-      resume();
-    }
-  }
-
-  /// Clean up
-  void dispose() {
-    _player.dispose();
-    WidgetsBinding.instance.removeObserver(this);
-  }
+  bool get isPlaying => _player.playing;
 }
